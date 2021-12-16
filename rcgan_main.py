@@ -19,9 +19,10 @@ def RCGAN(model_name, config, Wrapper):
     print('Loss metric: {}'.format(config['loss_metric']))
     net = Wrapper(config, model_name, SWEEP)
     net.train(epochs = config['train_epochs'])
+
     if not SWEEP:
         net.load(fixed=False)
-        net.generate(datas=[net.all_dataloader], whole=True, samples=False)
+        net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=False, ext=True)
         print('outputs generated')
 
 
@@ -36,7 +37,7 @@ def main():
         print('-'*100)
         print('Running 3D Reconstruction & Classification GAN (3D-RCGAN)')
         config = read_json('./config.json')['rgan']
-            
+
     model_name = str(SWEEP)+'_RCGAN_{}'.format(config['loss_metric'])
     RCGAN(model_name, config, RCGAN_Wrapper)
 
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     if SWEEP:
         print('[performing parameters searching...]')
         sweep_config = read_json('./config.json')['sweep_rgan']
-        sweep_id = wandb.sweep(sweep_config, project='rcgan')
+        sweep_id = wandb.sweep(sweep_config, project='rcgan1')
         wandb.agent(sweep_id, main)
     else:
         main()

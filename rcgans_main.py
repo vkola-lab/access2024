@@ -19,9 +19,10 @@ def RCGANs(model_name, config, Wrapper):
     print('Loss metric: {}'.format(config['loss_metric']))
     net = Wrapper(config, model_name, SWEEP)
     net.train(epochs = config['train_epochs'])
+
     if not SWEEP:
         net.load(fixed=False)
-        net.generate(datas=[net.all_dataloader], whole=True, samples=False)
+        net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=False, ext=True)
         print('outputs generated')
 
 
@@ -29,7 +30,7 @@ def main():
     torch.use_deterministic_algorithms(True)
 
     if SWEEP:
-        config_default = read_json('./config.json')['rgan']
+        config_default = read_json('./config.json')['rgans']
         wandb.init(config=config_default)
         config = wandb.config
     else:
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     if SWEEP:
         print('[performing parameters searching...]')
         sweep_config = read_json('./config.json')['sweep_rgan']
-        sweep_id = wandb.sweep(sweep_config, project='rcgan')
+        sweep_id = wandb.sweep(sweep_config, project='rcgan2')
         wandb.agent(sweep_id, main)
     else:
         main()

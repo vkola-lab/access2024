@@ -11,51 +11,86 @@ import torch
 
 # 2 options:
 # (1): put all Gs in one, and directly combine them
-# (2): put all in networks, and combine outside 
+# (2): put all in networks, and combine outside
 
 class _Gs_Model(nn.Module):
     def __init__(self, config):
+        #this version has 2+ generators. with potential option to share layers and combine outputs
         super().__init__()
         self.config = config
+        # optional shared layer
 
-        # Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0, ...)
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0)
+        # generator 1
+        self.g1_convt1 = nn.ConvTranspose3d(config['in_channels'], config['in_channels']*8, (3, 1, 1), stride=(1, 1, 1), padding=(0, 0, 0))
+        self.g1_bn1 = nn.BatchNorm3d(config['in_channels']*8)
+        self.g1_convt2 = nn.ConvTranspose3d(config['in_channels']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(3, 0, 0))
+        self.g1_bn2 = nn.BatchNorm3d(config['out_channels'])
 
-        self.da = nn.Sigmoid()
+        self.g1_convt3 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(1, 0, 0))
+        self.g1_bn3 = nn.BatchNorm3d(config['in_channels'])
+        self.g1_convt4 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=(2, 1, 1), padding=0)
+        self.g1_bn4 = nn.BatchNorm3d(config['in_channels'])
+        self.g1_convt5 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=(2, 1, 1), padding=0)
+        self.g1_bn5 = nn.BatchNorm3d(config['in_channels'])
+        self.g1_convt6 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=(2, 1, 1), padding=0)
+        self.g1_bn6 = nn.BatchNorm3d(config['in_channels'])
+
+        # generator 2
+        self.g2_convt1 = nn.ConvTranspose3d(config['in_channels'], config['in_channels']*8, (3, 1, 1), stride=(1, 1, 1), padding=(0, 0, 0))
+        self.g2_bn1 = nn.BatchNorm3d(config['in_channels']*8)
+        self.g2_convt2 = nn.ConvTranspose3d(config['in_channels']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(3, 0, 0))
+        self.g2_bn2 = nn.BatchNorm3d(config['out_channels'])
+
+        self.a = nn.ReLU()
+        self.ao = nn.Tanh()
+        # self.a = nn.Sigmoid()
 
     def forward(self, x):
-        b_size = x.shape[0]
-        x1 = x[:,:,:60].flatten().view(b_size, -1) #in here shape[0] is the batch size
-        x2 = x[:,:,60:].flatten().view(b_size, -1) #in here shape[0] is the batch size
-        # x3 = x[:,:,60,60,60:65].flatten().view(b_size, -1) #in here shape[0] is the batch size
-        # print('input', x3.shape)
-        # x3 = self.embed3(x3)
-        # print('Embedding, before T-encoder', x3.shape)
-        # print('v1', self.t_decoder(x3).shape)
-        # print('v2', self.t_decoder(x3.view(b_size, -1)).shape)
-
-        x1 = self.map1(x1)
-        x2 = self.map2(x2)
-        x = torch.stack((x1, x2))
-        # seq_len = 2
-        # x = x.view(seq_len, b_size, -1)
-        x = self.pos_encoder1(x)
-        # x = self.pos_encoder2(x)
-        x = self.t_encoder(x)
+        # print('first_g1', x.shape)
+        o1 = self.g1_convt1(x)
+        o1 = self.g1_bn1(o1)
+        o1 = self.a(o1)
         # print(x.shape)
+        o1 = self.g1_convt2(o1)
+        o1 = self.g1_bn2(o1)
+        o1 = self.ao(o1)
+        # print(o1.shape)
         # sys.exit()
-        # x = x.view(b_size, -1)
-        # print('before linear', x.shape)
-        # print(self.t_decoder)
-        x = self.t_decoder(x)
-        x = self.da(x)
-        # print('last', x.shape)
-        x = x[0, :]
+
+        # print('first_g2', x.shape)
+        o2 = self.g2_convt1(x)
+        o2 = self.g2_bn1(o2)
+        o2 = self.a(o2)
+        # print(x.shape)
+        o2 = self.g2_convt2(o2)
+        o2 = self.g2_bn2(o2)
+        o2 = self.ao(o2)
+        # print(o2.shape)
+
+        # optinal weighted combination
+        o = o1 + o2
+        # sys.exit()
+
+        # x = self.convt3(x)
+        # x = self.bn3(x)
+        # x = self.ao(x)
+        # print(x.shape)
+        # x = self.convt4(x)
+        # x = self.bn4(x)
+        # x = self.a(x)
+        # print(x.shape)
+        # x = self.convt5(x)
+        # x = self.bn5(x)
+        # x = self.a(x)
+        # print(x.shape)
+        # x = self.convt6(x)
+        # x = self.bn6(x)
+        # x = self.ao(x)
         # print('last first', x.shape)
         # sys.exit()
 
 
-        return x
+        return o
 
 class _G_Model(nn.Module):
     #this version has only 1 generator, so take a few slices and produce entire brain.
@@ -63,25 +98,10 @@ class _G_Model(nn.Module):
         super().__init__()
         self.config = config
 
-        # nn.ConvTranspose2d(config['in_channels'], config['out_channels'], config['kernel_size'], stride=1, padding=0)
-        # self.convt1 = nn.ConvTranspose3d(config['out_channels'], config['in_channels'], (11, 1, 1), stride=1, padding=0)
-        # self.bn1 = nn.BatchNorm3d(config['in_channels'])
-        # self.convt2 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=1, padding=0)
-        # self.bn2 = nn.BatchNorm3d(config['in_channels'])
-        # self.convt3 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=1, padding=0)
-        # self.bn3 = nn.BatchNorm3d(config['in_channels'])
-        # self.convt4 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=1, padding=0)
-        # self.bn4 = nn.BatchNorm3d(config['in_channels'])
-        # self.convt5 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=1, padding=0)
-        # self.bn5 = nn.BatchNorm3d(config['in_channels'])
-        # self.convt6 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=1, padding=0)
-        # self.bn6 = nn.BatchNorm3d(config['in_channels'])
-
-        # also consider smaller but more layers
-        self.convt1 = nn.ConvTranspose3d(config['out_channels'], config['in_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(1, 0, 0))
-        self.bn1 = nn.BatchNorm3d(config['in_channels'])
-        self.convt2 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(1, 0, 0))
-        self.bn2 = nn.BatchNorm3d(config['in_channels'])
+        self.convt1 = nn.ConvTranspose3d(config['in_channels'], config['in_channels']*8, (3, 1, 1), stride=(1, 1, 1), padding=(0, 0, 0))
+        self.bn1 = nn.BatchNorm3d(config['in_channels']*8)
+        self.convt2 = nn.ConvTranspose3d(config['in_channels']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(3, 0, 0))
+        self.bn2 = nn.BatchNorm3d(config['out_channels'])
         self.convt3 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(1, 0, 0))
         self.bn3 = nn.BatchNorm3d(config['in_channels'])
         self.convt4 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=(2, 1, 1), padding=0)
@@ -99,13 +119,13 @@ class _G_Model(nn.Module):
         # print('first', x.shape)
         x = self.convt1(x)
         x = self.bn1(x)
+        x = self.a(x)
+        # print(x.shape)
+        x = self.convt2(x)
+        x = self.bn2(x)
         x = self.ao(x)
         # print(x.shape)
         # sys.exit()
-        # x = self.convt2(x)
-        # x = self.bn2(x)
-        # x = self.a(x)
-        # print(x.shape)
         # x = self.convt3(x)
         # x = self.bn3(x)
         # x = self.ao(x)

@@ -1,6 +1,6 @@
 # network wrappers for 3D-RGAN
-# Updated: 11/4/2021
-# Status: in progress
+# Updated: 12/16/2021
+# Status: OK
 
 import torch
 import os, sys
@@ -19,8 +19,9 @@ from sklearn.metrics import classification_report
 
 from dataloader import B_Data
 from models import _G_Model, _D_Model, _Gs_Model, _CNN
+from utils import write_raw_score
 
-
+torch.set_num_threads(1) # may lower training speed (and potentially overheat issue) if machine has many cpus!
 device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
 class RGAN_Wrapper:
@@ -78,6 +79,11 @@ class RGAN_Wrapper:
 
         self.all_data = B_Data(data_dir, stage='all', seed=self.seed, step_size=self.config['step_size'])
         self.all_dataloader = DataLoader(self.all_data, batch_size=1)
+
+        Data_dir_NACC = "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
+        external_data = B_Data(Data_dir_NACC, stage='all', seed=self.seed, step_size=self.config['step_size'], external=True)
+        self.external_data = external_data
+        self.ext_dataloader = DataLoader(self.external_data, batch_size=1)
 
     def load(self, dir=None, fixed=False):
         if dir:
@@ -139,7 +145,7 @@ class RGAN_Wrapper:
                 torch.cuda.synchronize()
                 print('{}th epoch g_valid loss [{}] ='.format(self.epoch, self.config['loss_metric']), '%.3f' % (val_loss), 'Loss_D: %.3f Loss_G: %.3f D(x): %.3f D(G(z)): %.3f / %.3f' % (d_loss, g_loss, d_r, d_g, d_g2), '|| time(s) =', int(start.elapsed_time(end)//1000)) #d_g - d_g2: before update vs after update for d
                 if self.SWEEP:
-                    wandb.log({"g_valid loss":val_loss})
+                    wandb.log({"g_valid_loss":val_loss})
                     wandb.log({"D loss":d_loss})
                     wandb.log({"G loss":g_loss})
                     wandb.log({"D(x)":d_r})
@@ -251,12 +257,12 @@ class RGAN_Wrapper:
         self.g.eval()
         if whole:
             #prepare locations for data generation!
-            out_dir = self.config['out_dir'] + '{}/'.format(self.model_name)
-            if os.path.isdir(out_dir):
-                shutil.rmtree(out_dir)
+            out_dir = self.config['out_dir']
             if not os.path.exists(out_dir):
                 os.mkdir(out_dir)
             out_dirs = [out_dir + 'Z/', out_dir + 'G/', out_dir + 'T/']
+            if ext:
+                out_dirs += [out_dir + 'Z_E/', out_dir + 'G_E/', out_dir + 'T_E/']
             for o in out_dirs:
                 if os.path.isdir(o):
                     shutil.rmtree(o)
@@ -264,7 +270,7 @@ class RGAN_Wrapper:
                     os.mkdir(o)
 
         with torch.no_grad():
-            for data in datas:
+            for idx, data in enumerate(datas):
                 for inputs, targets, fname, _ in data:
                     # here only use 1 patch
                     inputs, targets = inputs.to(device), targets.to(device)
@@ -283,13 +289,13 @@ class RGAN_Wrapper:
                     if whole:
                         # generate for all data
                         img_z = nib.Nifti1Image(out, np.eye(4))
-                        img_z.to_filename(out_dirs[0]+fname)
+                        img_z.to_filename(out_dirs[0+3*idx]+fname)
 
                         img_g = nib.Nifti1Image(g_out, np.eye(4))
-                        img_g.to_filename(out_dirs[1]+fname)
+                        img_g.to_filename(out_dirs[1+3*idx]+fname)
 
                         img_t = nib.Nifti1Image(targets, np.eye(4))
-                        img_t.to_filename(out_dirs[2]+fname)
+                        img_t.to_filename(out_dirs[2+3*idx]+fname)
                     else:
                         break
 
@@ -419,6 +425,11 @@ class RCGAN_Wrapper:
         self.all_data = B_Data(data_dir, stage='all', seed=self.seed, step_size=self.config['step_size'])
         self.all_dataloader = DataLoader(self.all_data, batch_size=1)
 
+        Data_dir_NACC = "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
+        external_data = B_Data(Data_dir_NACC, stage='all', seed=self.seed, step_size=self.config['step_size'], external=True)
+        self.external_data = external_data
+        self.ext_dataloader = DataLoader(self.external_data, batch_size=1)
+
     def load(self, dir=None, fixed=False):
         if dir:
             # need to update
@@ -481,8 +492,8 @@ class RCGAN_Wrapper:
                 torch.cuda.synchronize()
                 print('{}th epoch g_valid loss [{}] ='.format(self.epoch, self.config['loss_metric']), '%.3f' % (val_loss), 'Loss_C: %.3f Loss_D: %.3f Loss_G: %.3f D(x): %.3f D(G(z)): %.3f / %.3f' % (c_loss, d_loss, g_loss, d_r, d_g, d_g2), '|| time(s) =', int(start.elapsed_time(end)//1000)) #d_g - d_g2: before update vs after update for d
                 if self.SWEEP:
-                    wandb.log({"g_valid loss":val_loss})
-                    wandb.log({"C loss":c_loss})
+                    wandb.log({"g_valid_loss":val_loss})
+                    wandb.log({"C_loss":c_loss})
                     wandb.log({"D loss":d_loss})
                     wandb.log({"G loss":g_loss})
                     wandb.log({"D(x)":d_r})
@@ -613,14 +624,15 @@ class RCGAN_Wrapper:
 
     def generate(self, datas, whole=False, samples=True, ext=False):
         self.g.eval()
+
         if whole:
             #prepare locations for data generation!
-            out_dir = self.config['out_dir'] + '{}/'.format(self.model_name)
-            if os.path.isdir(out_dir):
-                shutil.rmtree(out_dir)
+            out_dir = self.config['out_dir']
             if not os.path.exists(out_dir):
                 os.mkdir(out_dir)
-            out_dirs = [out_dir + 'Z/', out_dir + 'G/', out_dir + 'T/']
+            out_dirs = [out_dir + 'Z/', out_dir + 'CG_1/', out_dir + 'T/']
+            if ext:
+                out_dirs += [out_dir + 'Z_E/', out_dir + 'CG_1_E/', out_dir + 'T_E/']
             for o in out_dirs:
                 if os.path.isdir(o):
                     shutil.rmtree(o)
@@ -628,7 +640,7 @@ class RCGAN_Wrapper:
                     os.mkdir(o)
 
         with torch.no_grad():
-            for data in datas:
+            for idx, data in enumerate(datas):
                 for inputs, targets, fname, _ in data:
                     # here only use 1 patch
                     inputs, targets = inputs.to(device), targets.to(device)
@@ -647,13 +659,13 @@ class RCGAN_Wrapper:
                     if whole:
                         # generate for all data
                         img_z = nib.Nifti1Image(out, np.eye(4))
-                        img_z.to_filename(out_dirs[0]+fname)
+                        img_z.to_filename(out_dirs[0+3*idx]+fname)
 
                         img_g = nib.Nifti1Image(g_out, np.eye(4))
-                        img_g.to_filename(out_dirs[1]+fname)
+                        img_g.to_filename(out_dirs[1+3*idx]+fname)
 
                         img_t = nib.Nifti1Image(targets, np.eye(4))
-                        img_t.to_filename(out_dirs[2]+fname)
+                        img_t.to_filename(out_dirs[2+3*idx]+fname)
                     else:
                         break
 
@@ -726,8 +738,7 @@ class RCGANs_Wrapper:
         self.prepare_dataloader(config['batch_size'], self.data_dir)
 
         # in_size = 121*145*121
-        self.g1 = _G_Model(config).to(device)
-        self.g2 = _G_Model(config).to(device)
+        self.g = _Gs_Model(config).to(device)
         self.d = _D_Model(config).to(device)
         self.c = _CNN(config).to(device)
 
@@ -738,15 +749,11 @@ class RCGANs_Wrapper:
             self.criterion = nn.MSELoss().to(device)
 
         if config['optimizer'] == 'SGD':
-            self.optimizer_g1 = optim.SGD(self.g1.parameters(), lr=config['lr_g'], weight_decay=config['weight_decay_g'])
-            self.optimizer_g2 = optim.SGD(self.g2.parameters(), lr=config['lr_g'], weight_decay=config['weight_decay_g'])
-
+            self.optimizer_g = optim.SGD(self.g.parameters(), lr=config['lr_g'], weight_decay=config['weight_decay_g'])
             self.optimizer_d = optim.SGD(self.d.parameters(), lr=config['lr_d'], weight_decay=config['weight_decay_d'])
             self.optimizer_c = optim.SGD(self.c.parameters(), lr=config['lr_c'], weight_decay=config['weight_decay_c'])
         elif config['optimizer'] == 'Adam':
-            self.optimizer_g1 = optim.Adam(self.g1.parameters(), lr=config['lr_g'], weight_decay=config['weight_decay_g'])
-            self.optimizer_g2 = optim.Adam(self.g2.parameters(), lr=config['lr_g'], weight_decay=config['weight_decay_g'])
-
+            self.optimizer_g = optim.Adam(self.g.parameters(), lr=config['lr_g'], weight_decay=config['weight_decay_g'])
             self.optimizer_d = optim.Adam(self.d.parameters(), lr=config['lr_d'], weight_decay=config['weight_decay_d'])
             self.optimizer_c = optim.Adam(self.c.parameters(), lr=config['lr_c'], weight_decay=config['weight_decay_c'])
 
@@ -764,23 +771,26 @@ class RCGANs_Wrapper:
         self.all_data = B_Data(data_dir, stage='all', seed=self.seed, step_size=self.config['step_size'])
         self.all_dataloader = DataLoader(self.all_data, batch_size=1)
 
+        Data_dir_NACC = "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
+        external_data = B_Data(Data_dir_NACC, stage='all', seed=self.seed, step_size=self.config['step_size'], external=True)
+        self.external_data = external_data
+        self.ext_dataloader = DataLoader(self.external_data, batch_size=1)
+
     def load(self, dir=None, fixed=False):
         if dir:
             # need to update
             print('loading pre-trained model...')
-            dir = [glob.glob(dir[0] + '*_d_*.pth')[0], glob.glob(dir[1] + '*_g1_*.pth')[0], glob.glob(dir[1] + '*_g2_*.pth')[0], glob.glob(dir[2] + '*_c_*.pth')[0]]
+            dir = [glob.glob(dir[0] + '*_d_*.pth')[0], glob.glob(dir[1] + '*_g_*.pth')[0], glob.glob(dir[1] + '*_c_*.pth')[0]]
             print('might need update')
         else:
             print('loading model...')
-            dir = [glob.glob(self.checkpoint_dir + '*_d_*.pth')[0], glob.glob(self.checkpoint_dir + '*_g1_*.pth')[0], glob.glob(self.checkpoint_dir + '*_g2_*.pth')[0], glob.glob(self.checkpoint_dir + '*_c_*.pth')[0]]
+            dir = [glob.glob(self.checkpoint_dir + '*_d_*.pth')[0], glob.glob(self.checkpoint_dir + '*_g_*.pth')[0], glob.glob(self.checkpoint_dir + '*_c_*.pth')[0]]
         st_d = torch.load(dir[0])
-        st_g1 = torch.load(dir[1])
-        st_g2 = torch.load(dir[2])
-        st_c = torch.load(dir[3])
+        st_g = torch.load(dir[1])
+        st_c = torch.load(dir[2])
         # del st['l2.weight']
         self.d.load_state_dict(st_d, strict=False)
-        self.g1.load_state_dict(st_g1, strict=False)
-        self.g2.load_state_dict(st_g2, strict=False)
+        self.g.load_state_dict(st_g, strict=False)
         self.c.load_state_dict(st_c, strict=False)
         if fixed:
             print('need update')
@@ -828,8 +838,8 @@ class RCGANs_Wrapper:
                 torch.cuda.synchronize()
                 print('{}th epoch g_valid loss [{}] ='.format(self.epoch, self.config['loss_metric']), '%.3f' % (val_loss), 'Loss_C: %.3f Loss_D: %.3f Loss_G: %.3f D(x): %.3f D(G(z)): %.3f / %.3f' % (c_loss, d_loss, g_loss, d_r, d_g, d_g2), '|| time(s) =', int(start.elapsed_time(end)//1000)) #d_g - d_g2: before update vs after update for d
                 if self.SWEEP:
-                    wandb.log({"g_valid loss":val_loss})
-                    wandb.log({"C loss":c_loss})
+                    wandb.log({"g_valid_loss":val_loss})
+                    wandb.log({"C_loss":c_loss})
                     wandb.log({"D loss":d_loss})
                     wandb.log({"G loss":g_loss})
                     wandb.log({"D(x)":d_r})
@@ -857,8 +867,7 @@ class RCGANs_Wrapper:
         plt.close()
 
     def train_model_epoch(self):
-        self.g1.train(True)
-        self.g2.train(True)
+        self.g.train(True)
         self.d.train(True)
         self.c.train(True)
         d_losses, g_losses, c_losses = [], [], []
@@ -867,8 +876,7 @@ class RCGANs_Wrapper:
         torch.use_deterministic_algorithms(False)
         for inputs, targets, _, labels in self.train_dataloader:
             inputs, targets, labels = inputs.to(device), targets.to(device), labels.to(device).float()
-            self.g1.zero_grad()
-            self.g2.zero_grad()
+            self.g.zero_grad()
             self.d.zero_grad()
             self.c.zero_grad()
 
@@ -880,7 +888,7 @@ class RCGANs_Wrapper:
             loss_r.backward()
             d_r += [r_preds.mean().item()]
 
-            g_out = self.g1(inputs) + self.g2(inputs)
+            g_out = self.g(inputs)
             g_preds = self.d(g_out.detach()).view(-1)#don't want to update g here
             g_labels = torch.full((g_preds.shape[0],), 0, dtype=torch.float, device=device)
             loss_g = self.criterion(g_preds, g_labels)
@@ -892,7 +900,7 @@ class RCGANs_Wrapper:
                 self.optimizer_d.step()
 
             #update g and c
-            g_out = self.g1(inputs) + self.g2(inputs)
+            g_out = self.g(inputs)
             preds_c = self.c(g_out).view(-1)
             c_loss = self.criterion(preds_c, labels)
             c_losses += [c_loss.item()]
@@ -907,8 +915,7 @@ class RCGANs_Wrapper:
             loss.backward()
             g_losses += [loss.item()]
             d_g2 += [preds_d.mean().item()]
-            self.optimizer_g1.step()
-            self.optimizer_g2.step()
+            self.optimizer_g.step()
             self.optimizer_c.step()
 
             # print(D_g, D_g2)
@@ -920,8 +927,7 @@ class RCGANs_Wrapper:
         return np.mean(d_losses), np.mean(g_losses), np.mean(c_losses), np.mean(d_g), np.mean(d_g2), np.mean(d_r)
 
     def valid_model_epoch(self):
-        self.g1.eval()
-        self.g2.eval()
+        self.g.eval()
         self.d.eval()
         self.c.eval()
         with torch.no_grad():
@@ -930,7 +936,7 @@ class RCGANs_Wrapper:
                 # here only use 1 patch
                 inputs, targets, labels = inputs.to(device), targets.to(device), labels.to(device).float()
 
-                g_out = self.g1(inputs) + self.g2(inputs)
+                g_out = self.g(inputs)
                 preds_c = self.c(g_out).view(-1)
                 c_loss = self.criterion(preds_c, labels)
 
@@ -959,22 +965,20 @@ class RCGANs_Wrapper:
                         except:
                             pass
             torch.save(self.d.state_dict(), '{}{}_d_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
-            torch.save(self.g1.state_dict(), '{}{}_g1_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
-            torch.save(self.g2.state_dict(), '{}{}_g2_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
+            torch.save(self.g.state_dict(), '{}{}_g_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
             torch.save(self.c.state_dict(), '{}{}_c_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
 
     def generate(self, datas, whole=False, samples=True, ext=False):
-        self.g1.eval()
-        self.g2.eval()
+        self.g.eval()
 
         if whole:
             #prepare locations for data generation!
-            out_dir = self.config['out_dir'] + '{}/'.format(self.model_name)
-            if os.path.isdir(out_dir):
-                shutil.rmtree(out_dir)
+            out_dir = self.config['out_dir']
             if not os.path.exists(out_dir):
                 os.mkdir(out_dir)
-            out_dirs = [out_dir + 'Z/', out_dir + 'G/', out_dir + 'T/']
+            out_dirs = [out_dir + 'Z/', out_dir + 'CG_2/', out_dir + 'T/']
+            if ext:
+                out_dirs += [out_dir + 'Z_E/', out_dir + 'CG_2_E/', out_dir + 'T_E/']
             for o in out_dirs:
                 if os.path.isdir(o):
                     shutil.rmtree(o)
@@ -982,32 +986,32 @@ class RCGANs_Wrapper:
                     os.mkdir(o)
 
         with torch.no_grad():
-            for data in datas:
+            for idx, data in enumerate(datas):
                 for inputs, targets, fname, _ in data:
                     # here only use 1 patch
                     inputs, targets = inputs.to(device), targets.to(device)
                     fname = os.path.basename(fname[0])
-                    g_out = (self.g1(inputs)+self.g2(inputs)).cpu().numpy().squeeze()
+                    g_out = (self.g(inputs)).cpu().numpy().squeeze()
                     targets = targets.cpu().numpy().squeeze()
 
                     inputs = inputs.cpu().numpy().squeeze()
                     out = np.zeros(targets.shape)
                     out[::self.config['step_size']] = inputs
 
-                    dir_name = self.output_dir+str(self.epoch)+'_'
+                    dir_name = self.output_dir#+str(self.epoch)+'_'
                     dir_name += fname
                     if samples:
                         self.visualize(out, g_out, targets, dir_name)
                     if whole:
                         # generate for all data
                         img_z = nib.Nifti1Image(out, np.eye(4))
-                        img_z.to_filename(out_dirs[0]+fname)
+                        img_z.to_filename(out_dirs[0+3*idx]+fname)
 
                         img_g = nib.Nifti1Image(g_out, np.eye(4))
-                        img_g.to_filename(out_dirs[1]+fname)
+                        img_g.to_filename(out_dirs[1+3*idx]+fname)
 
                         img_t = nib.Nifti1Image(targets, np.eye(4))
-                        img_t.to_filename(out_dirs[2]+fname)
+                        img_t.to_filename(out_dirs[2+3*idx]+fname)
                         if '0173' in fname:
                             img_z.to_filename(dir_name.replace('.nii', '_z.nii'))
                             img_g.to_filename(dir_name.replace('.nii', '_g.nii'))
@@ -1059,11 +1063,12 @@ class RCGANs_Wrapper:
 
 
 class CNN_Wrapper:
-    def __init__(self, config, model_name, seed):
+    def __init__(self, config, model_name, exp_idx):
         self.config = config
         self.data_dir = config['data_dir']
         self.lr = config['lr']
-        self.seed = seed
+        self.seed = exp_idx*1000
+        self.exp_idx = exp_idx
         self.model_name = model_name
         self.loss_metric = config['loss_metric']
         self.checkpoint_dir = './checkpoint_dir/'
@@ -1100,6 +1105,7 @@ class CNN_Wrapper:
         sample_weight, self.imbalanced_ratio = train_data.get_sample_weights()
         self.train_data = train_data
         self.train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=False, drop_last=True)
+        # self.train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=False, pin_memory=False, drop_last=True)
 
         valid_data = B_Data(data_dir, stage='valid', seed=self.seed, step_size=self.config['step_size'])
         self.valid_dataloader = DataLoader(valid_data, batch_size=1, shuffle=False)
@@ -1111,6 +1117,11 @@ class CNN_Wrapper:
         all_data = B_Data(data_dir, stage='all', seed=self.seed, step_size=self.config['step_size'])
         self.all_data = all_data
         self.all_dataloader = DataLoader(all_data, batch_size=len(all_data))
+
+        Data_dir_NACC = data_dir[:-1] + '_E/'
+        external_data = B_Data(Data_dir_NACC, stage='all', seed=self.seed, step_size=self.config['step_size'], external=True)
+        self.external_data = external_data
+        self.ext_dataloader = DataLoader(self.external_data, batch_size=1)
 
     def load(self, dir, fixed=False):
         # need to update
@@ -1240,21 +1251,26 @@ class CNN_Wrapper:
         # if out is True, return the report dictionary; else print report
         # only look at one item with specified key; i.e. test dataset
         self.cnn.eval()
-        dls = [self.train_dataloader, self.valid_dataloader, self.test_dataloader]
-        names = ['train dataset', 'valid dataset', 'test dataset']
+        dls = [self.train_dataloader, self.valid_dataloader, self.test_dataloader, self.ext_dataloader]
+        names = ['train dataset', 'valid dataset', 'test dataset', 'ext dataset']
         target_names = ['class ' + str(i) for i in range(2)]
         for dl, n in zip(dls, names):
             if key not in n:
                 continue
 
+            preds_raw = []
             preds_all = []
             labels_all = []
             with torch.no_grad():
                 for _, inputs, _, labels in dl:
                     # here only use 1 patch
                     inputs, labels = inputs.to(device), labels.float().to(device)
+                    preds_raw += self.cnn(inputs).view(-1).cpu()
                     preds_all += torch.round(self.cnn(inputs).view(-1)).cpu()
                     labels_all += labels.cpu()
+            f = open(self.checkpoint_dir + 'raw_score_{}_{}.txt'.format(key, self.exp_idx), 'w')
+            write_raw_score(f, preds_raw, labels_all)
+            f.close()
 
             if out:
                 report = classification_report(y_true=labels_all, y_pred=preds_all, labels=[0,1], target_names=target_names, zero_division=0, output_dict=True)
