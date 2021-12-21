@@ -1,5 +1,5 @@
 # main file for CNN classifier
-# Updated: 11/25/2021
+# Updated: 12/21/2021
 # Status: OK
 # CUBLAS_WORKSPACE_CONFIG=:4096:8 python cnn_main.py
 
@@ -62,7 +62,7 @@ def CNN(model_name, config, Wrapper, num_exps):
 
 
 def main():
-    num_exps = 3
+    num_exps = 1
     table = []
     table.append(['Model', 'Accuracy', 'Precision (macro avg)', 'Precision (weighted avg)', 'Recall (macro avg)', 'Recall (weighted avg)', 'F1-score (macro avg)', 'F1-score (weighted avg)'])
     torch.use_deterministic_algorithms(True)
