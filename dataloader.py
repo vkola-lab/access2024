@@ -10,13 +10,13 @@ import numpy as np
 import nibabel as nib
 
 from torch.utils.data import Dataset
-from utils import read_csv_sp as read_csv, read_csv_cox_ext as read_csv_ext, rescale
+from utils import read_csv_sp as read_csv, read_csv_cox_ext as read_csv_ext, rescale, read_csv_pre
 
 SCALE = 1 #rescale to 0~2.5
 
 class B_Data(Dataset):
     #Brain data
-    def __init__(self, data_dir, stage, ratio=(0.6, 0.2, 0.2), seed=1000, step_size=10, external=False):
+    def __init__(self, data_dir, stage, ratio=(0.6, 0.2, 0.2), seed=1000, step_size=10, external=False, Pre=False):
         random.seed(seed)
 
         self.stage = stage
@@ -26,13 +26,16 @@ class B_Data(Dataset):
         # self.data_list = glob.glob(data_dir + 'coregistered*nii*')
         self.data_list = glob.glob(data_dir + '*nii*')
 
-        # csvname = '~/mri-pet/metadata/data_processed/merged_dataframe_cox_pruned_final.csv'
-        csvname = './merged_dataframe_cox_noqc_pruned_final.csv'
+        csvname = './csvs/merged_dataframe_cox_noqc_pruned_final.csv'
         if external:
-            csvname = './merged_dataframe_cox_test_pruned_final.csv'
+            csvname = './csvs/merged_dataframe_cox_test_pruned_final.csv'
+        elif Pre:
+            csvname = './csvs/merged_dataframe_unused_cox_pruned.csv'
         csvname = os.path.expanduser(csvname)
         if external:
             fileIDs, time_hit = read_csv_ext(csvname) #training file
+        elif Pre:
+            fileIDs, time_hit = read_csv_pre(csvname) #training file
         else:
             fileIDs, time_hit = read_csv(csvname) #training file
 
@@ -55,16 +58,20 @@ class B_Data(Dataset):
         l = len(self.data_list)
         split1 = int(l*ratio[0])
         split2 = int(l*(ratio[0]+ratio[1]))
-        idxs = list(range(len(fileIDs)))
+        idxs = list(range(l))
         random.shuffle(idxs)
         if 'train' in stage:
             self.index_list = idxs[:split1]
+            # print(len(self.index_list))
         elif 'valid' in stage:
             self.index_list = idxs[split1:split2]
+            # print(len(self.index_list))
         elif 'test' in stage:
             self.index_list = idxs[split2:]
+            # print(len(self.index_list))
         elif 'all' in stage:
             self.index_list = idxs
+            # print(len(self.index_list))
         else:
             raise Exception('Unexpected Stage for Vit_Data!')
         # print(len(self.index_list))
@@ -88,10 +95,10 @@ class B_Data(Dataset):
         data = np.expand_dims(data, axis=0)
 
         g_data = data[:,::self.step_size]
-        # print('dataloader', data.shape)
-        # print('dataloader', g_data.shape)
+        print('dataloader', data.shape)
+        print('dataloader', g_data.shape)
 
-        # sys.exit()
+        sys.exit()
         return g_data, data, self.data_list[idx], hit
 
 
@@ -121,10 +128,9 @@ class B_IQ_Data(Dataset):
         self.data_dir = data_dir
         self.data_list = glob.glob(data_dir+self.names[0] + '*nii*')
 
-        # csvname = '~/mri-pet/metadata/data_processed/merged_dataframe_cox_pruned_final.csv'
-        csvname = './merged_dataframe_cox_noqc_pruned_final.csv'
+        csvname = './csvs/merged_dataframe_cox_noqc_pruned_final.csv'
         if external:
-            csvname = './merged_dataframe_cox_test_pruned_final.csv'
+            csvname = './csvs/merged_dataframe_cox_test_pruned_final.csv'
         csvname = os.path.expanduser(csvname)
         if external:
             fileIDs, time_hit = read_csv_ext(csvname) #training file
@@ -205,5 +211,9 @@ class B_IQ_Data(Dataset):
 
 if __name__ == "__main__":
     Data_dir_NACC = "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
-    external_data = B_Data(Data_dir_NACC, 'all', external=True)
+    Data_dir_ADNI = "/data2/MRI_PET_DATA/processed_images_final_unused_cox/brain_stripped_unused_cox/"
+    external_data = B_Data(Data_dir_ADNI, 'all', Pre=True)
     print(len(external_data))
+    for _ in external_data:
+        print()
+        sys.exit()

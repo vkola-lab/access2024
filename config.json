@@ -22,8 +22,10 @@
       "goal": "minimize"
     },
     "parameters":{
-      "batch_size":{
-        "values": [5, 10]
+      "fil_num_g":{
+        "distribution": "int_uniform",
+        "min": 1,
+        "max": 3
       },
       "dropout":{
         "distribution": "uniform",
@@ -71,12 +73,13 @@
     "Data_dir2":            "/data2/MRI_PET_DATA/processed_images_final_cox_noqc/brain_stripped_rigid_cox_noqc/",
     "out_dir":              "/data1/RGAN_Data/",
     "train_epochs":         30,
-    "batch_size":           5,
-    "lr_d":                 0.0008345474475015873,
-    "lr_c":                 5.560479321904539e-05,
-    "lr_g":                 0.003552017321001077,
-    "fil_num":              10,
-    "dropout":              0.006771147655542387,
+    "batch_size":           10,
+    "lr_c":                 0.00024,
+    "lr_d":                 0.00623,
+    "lr_g":                 0.00452,
+    "fil_num":              20,
+    "fil_num_g":              3,
+    "dropout":              0.126,
     "step_size":            2,
     "in_channels":          1,
     "out_channels":         1,
@@ -85,9 +88,9 @@
     "weight_decay_g":       0.01,
     "weight_decay_d":       0.01,
     "weight_decay_c":       0.01,
-    "c_weight":             0.06921945040924803,
-    "d_weight":             0.015813303084395557,
-    "p_weight":             0.17768931245589917
+    "c_weight":             0.5155,
+    "d_weight":             0.4169,
+    "p_weight":             0.8320
   },
   "rgans":{
     "loss_metric":          "Standard",
@@ -96,35 +99,52 @@
     "out_dir":              "/data1/RGAN_Data/",
     "train_epochs":         30,
     "batch_size":           5,
-    "lr_d":                 0.003296309562243866,
-    "lr_c":                 0.009538210510811112,
-    "lr_g":                 0.008944468635931773,
-    "fil_num":              10,
-    "dropout":              0.024338769940523208,
+    "lr_d":                 0.007,
+    "lr_c":                 0.0059,
+    "lr_g":                 0.0053,
+    "fil_num":              20,
+    "fil_num_g":              3,
+    "dropout":              0.0137,
     "step_size":            2,
     "in_channels":          1,
     "out_channels":         1,
     "kernel_size":          3,
-    "optimizer":            "Adam",
+    "optimizer":            "SGD",
     "weight_decay_g":       0.01,
     "weight_decay_d":       0.01,
     "weight_decay_c":       0.01,
-    "c_weight":             0.11815635502139656,
-    "d_weight":             0.12414448666177902,
-    "p_weight":             0.5242384972136378
+    "c_weight":             0.5199,
+    "d_weight":             0.4288,
+    "p_weight":             0.5274
   },
   "cnn_E":{
     "loss_metric":          "Standard",
     "data_dir":             "/data1/RGAN_Data/RGAN_Standard/T/",
+    "batch_size":           5,
+    "train_epochs":         40,
+    "lr":                   0.002,
+    "dropout":              0.25,
+    "step_size":            13,
+    "in_channels":          1,
+    "fil_num":              20,
+    "kernel_size":          3,
+    "optimizer":            "SGD",
+    "weight_decay":         0.01,
+    "pretrain":                 0
+  },
+  "cnn_P":{
+    "loss_metric":          "Standard",
+    "data_dir":             "/data2/MRI_PET_DATA/processed_images_final_unused_cox/brain_stripped_unused_cox/",
     "batch_size":           5,
     "train_epochs":         10,
     "lr":                   0.002,
     "dropout":              0.25,
     "step_size":            13,
     "in_channels":          1,
-    "fil_num":              10,
+    "fil_num":              20,
     "kernel_size":          3,
     "optimizer":            "SGD",
-    "weight_decay":         0.01
+    "weight_decay":         0.01,
+    "pretrain":                 1
   }
 }

@@ -88,6 +88,28 @@ def read_csv_sp(filename):
     # print('smci', status.count(0))
     # print('pmci', status.count(1))
     return fileIDs, status
+    
+def read_csv_pre(filename):
+    with open(filename, 'r') as f:
+        reader = csv.DictReader(f)
+        fileIDs, status = [], []
+        for r in reader:
+            l = str(r['DX'])
+            if l == 'AD':
+                l = 1
+            elif l == 'MCI':
+                l = 0
+                # continue
+            elif l == 'NL':
+                l = 0
+            else:
+                continue
+            status += [l]
+            fileIDs += [str(r['FILE_CODE'])]
+    # print('smci', status.count(0))
+    # print('pmci', status.count(1))
+    # print(len(fileIDs), len(status))
+    return fileIDs, status
 
 def rescale(array, tup):
     m = np.min(array)
@@ -106,7 +128,7 @@ def signaltonoise(a, axis=0, ddof=0):
 def SNR(tensor):
     # return the signal to noise ratio
     for slice_idx in [80]:
-        img = tensor[slice_idx, :, :]
+        img = tensor[:, :, slice_idx]
         m = interp1d([np.min(img),np.max(img)],[0,255])
         img = m(img)
         val = signaltonoise(img, axis=None)
@@ -115,11 +137,11 @@ def SNR(tensor):
 def CNR(tensor):
     # return the signal to noise ratio
     for slice_idx in [80]:
-        img = tensor[slice_idx, :, :] #shape 145, 121
+        img = tensor[:, :, slice_idx] #shape 121, 145, (121)
         # print(img.shape)
         m = interp1d([np.min(img),np.max(img)],[0,255])
         img = m(img)
-        roi1, roi2 = img[90:120, 80:110], img[110:140, 50:80]
+        roi1, roi2 = img[90:120, 80:110], img[60:90, 50:80]
         return np.abs(np.mean(roi1) - np.mean(roi2)) / np.sqrt(np.square(np.std(roi1))+np.square(np.std(roi2)))
 
 def SSIM(tensor1, tensor2, zoom=False):
@@ -130,7 +152,7 @@ def SSIM(tensor1, tensor2, zoom=False):
             side_b = slice_idx+30
             img1, img2 = tensor1[side_a:side_b, side_a:side_b, 60], tensor2[side_a:side_b, side_a:side_b, 60]
         else:
-            img1, img2 = tensor1[slice_idx, :, :], tensor2[slice_idx, :, :]
+            img1, img2 = tensor1[:, :, slice_idx], tensor2[:, :, slice_idx]
         img1 = img_as_float(img1)
         img2 = img_as_float(img2)
         ssim_val = ssim(img1, img2)
@@ -211,11 +233,14 @@ def p_val(o, g):
     return p
 
 if __name__ == "__main__":
-    csvname = './merged_dataframe_cox_noqc_pruned_final.csv'
+    csvname = './csvs/merged_dataframe_cox_noqc_pruned_final.csv'
     csvname = os.path.expanduser(csvname)
     # read_csv_cox(csvname)
     read_csv_sp(csvname)
-    csvname = './merged_dataframe_cox_test_pruned_final.csv' #(NACC)
+    csvname = './csvs/merged_dataframe_cox_test_pruned_final.csv' #(NACC)
     csvname = os.path.expanduser(csvname)
     read_csv_cox_ext(csvname)
     #37 smci, 117 pmci
+    csvname = './csvs/merged_dataframe_unused_cox_pruned.csv' #(ADNI-pre)
+    csvname = os.path.expanduser(csvname)
+    read_csv_pre(csvname)

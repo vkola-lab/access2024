@@ -1,5 +1,5 @@
 # network wrappers for 3D-RGAN
-# Updated: 12/16/2021
+# Updated: 12/25/2021
 # Status: OK
 
 import torch
@@ -1101,20 +1101,20 @@ class CNN_Wrapper:
             self.optimizer = optim.Adam(self.cnn.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
 
     def prepare_dataloader(self, batch_size, data_dir):
-        train_data = B_Data(data_dir, stage='train', seed=self.seed, step_size=self.config['step_size'])
+        train_data = B_Data(data_dir, stage='train', seed=self.seed, step_size=self.config['step_size'], Pre=self.config['pretrain'])
         sample_weight, self.imbalanced_ratio = train_data.get_sample_weights()
         self.train_data = train_data
         self.train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=False, drop_last=True)
         # self.train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=False, pin_memory=False, drop_last=True)
 
-        valid_data = B_Data(data_dir, stage='valid', seed=self.seed, step_size=self.config['step_size'])
+        valid_data = B_Data(data_dir, stage='valid', seed=self.seed, step_size=self.config['step_size'], Pre=self.config['pretrain'])
         self.valid_dataloader = DataLoader(valid_data, batch_size=1, shuffle=False)
 
-        test_data  = B_Data(data_dir, stage='test', seed=self.seed, step_size=self.config['step_size'])
+        test_data  = B_Data(data_dir, stage='test', seed=self.seed, step_size=self.config['step_size'], Pre=self.config['pretrain'])
         self.test_data = test_data
         self.test_dataloader = DataLoader(test_data, batch_size=1, shuffle=False)
 
-        all_data = B_Data(data_dir, stage='all', seed=self.seed, step_size=self.config['step_size'])
+        all_data = B_Data(data_dir, stage='all', seed=self.seed, step_size=self.config['step_size'], Pre=self.config['pretrain'])
         self.all_data = all_data
         self.all_dataloader = DataLoader(all_data, batch_size=len(all_data))
 
@@ -1124,16 +1124,14 @@ class CNN_Wrapper:
         self.ext_dataloader = DataLoader(self.external_data, batch_size=1)
 
     def load(self, dir, fixed=False):
-        # need to update
-        print('not implemented')
-        sys.exit()
         print('loading pre-trained model...')
         dir = glob.glob(dir + '*.pth')
         st = torch.load(dir[0])
-        del st['l2.weight']
-        del st['l2.bias']
-        self.model.load_state_dict(st, strict=False)
+        # del st['l2.weight']
+        # del st['l2.bias']
+        self.cnn.load_state_dict(st, strict=False)
         if fixed:
+            # need update if want to use
             ps = []
             for n, p in self.model.named_parameters():
                 if n == 'l2.weight' or n == 'l2.bias' or n == 'l1.weight' or n == 'l1.bias':

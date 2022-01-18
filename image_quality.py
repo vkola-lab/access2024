@@ -38,6 +38,10 @@ class Image_Quality:
                     for n, d in zip(names, datas):
                         if m == 'ssim':
                             #first is the target!
+                            # print(SSIM(datas[0], datas[1]))
+                            # print(SSIM(d, d))
+                            # print('ssim')
+                            # sys.exit()
                             iqa_dict[n+'_'+m+'_'+ds].append(SSIM(datas[0], d))
                         else:
                             iqa_dict[n+'_'+m+'_'+ds].append(iqa_tensor(d, self.eng, m))
@@ -61,7 +65,7 @@ class Image_Quality:
         with open('iqa_dict.json') as json_file:
             iqa_dict = json.load(json_file)
         
-        metrics=['CNR', 'SNR', 'brisque', 'piqe']
+        metrics=['CNR', 'SNR', 'brisque', 'piqe', 'ssim']
         names=['T', 'Z', 'G', 'CG_1', 'CG_2']
         datasets=['', '_E']
         table = [metrics]

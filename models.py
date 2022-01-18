@@ -21,9 +21,9 @@ class _Gs_Model(nn.Module):
         # optional shared layer
 
         # generator 1
-        self.g1_convt1 = nn.ConvTranspose3d(config['in_channels'], config['in_channels']*8, (3, 1, 1), stride=(1, 1, 1), padding=(0, 0, 0))
-        self.g1_bn1 = nn.BatchNorm3d(config['in_channels']*8)
-        self.g1_convt2 = nn.ConvTranspose3d(config['in_channels']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(3, 0, 0))
+        self.g1_convt1 = nn.ConvTranspose3d(config['in_channels'], config['fil_num_g']*8, (3, 1, 1), stride=(1, 1, 1), padding=(0, 0, 0))
+        self.g1_bn1 = nn.BatchNorm3d(config['fil_num_g']*8)
+        self.g1_convt2 = nn.ConvTranspose3d(config['fil_num_g']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(3, 0, 0))
         self.g1_bn2 = nn.BatchNorm3d(config['out_channels'])
 
         self.g1_convt3 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(1, 0, 0))
@@ -36,9 +36,9 @@ class _Gs_Model(nn.Module):
         self.g1_bn6 = nn.BatchNorm3d(config['in_channels'])
 
         # generator 2
-        self.g2_convt1 = nn.ConvTranspose3d(config['in_channels'], config['in_channels']*8, (3, 1, 1), stride=(1, 1, 1), padding=(0, 0, 0))
-        self.g2_bn1 = nn.BatchNorm3d(config['in_channels']*8)
-        self.g2_convt2 = nn.ConvTranspose3d(config['in_channels']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(3, 0, 0))
+        self.g2_convt1 = nn.ConvTranspose3d(config['in_channels'], config['fil_num_g']*8, (3, 1, 1), stride=(1, 1, 1), padding=(0, 0, 0))
+        self.g2_bn1 = nn.BatchNorm3d(config['fil_num_g']*8)
+        self.g2_convt2 = nn.ConvTranspose3d(config['fil_num_g']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(3, 0, 0))
         self.g2_bn2 = nn.BatchNorm3d(config['out_channels'])
 
         self.a = nn.ReLU()
@@ -98,12 +98,14 @@ class _G_Model(nn.Module):
         super().__init__()
         self.config = config
 
-        self.convt1 = nn.ConvTranspose3d(config['in_channels'], config['in_channels']*8, (3, 1, 1), stride=(1, 1, 1), padding=(0, 0, 0))
-        self.bn1 = nn.BatchNorm3d(config['in_channels']*8)
-        self.convt2 = nn.ConvTranspose3d(config['in_channels']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(3, 0, 0))
+        self.convt1 = nn.ConvTranspose3d(config['in_channels'], config['fil_num_g']*8, (3, 1, 1), stride=(1, 1, 1), padding=(0, 0, 0))
+        self.bn1 = nn.BatchNorm3d(config['fil_num_g']*8)
+        self.convt2 = nn.ConvTranspose3d(config['fil_num_g']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(3, 0, 0))
         self.bn2 = nn.BatchNorm3d(config['out_channels'])
-        self.convt3 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(1, 0, 0))
-        self.bn3 = nn.BatchNorm3d(config['in_channels'])
+        
+        self.convt3 = nn.ConvTranspose3d(config['fil_num_g']*8, config['out_channels'], (3, 1, 1), stride=(2, 1, 1), padding=(1, 0, 0))
+        self.bn3 = nn.BatchNorm3d(config['out_channels'])
+        
         self.convt4 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=(2, 1, 1), padding=0)
         self.bn4 = nn.BatchNorm3d(config['in_channels'])
         self.convt5 = nn.ConvTranspose3d(config['in_channels'], config['in_channels'], (11, 1, 1), stride=(2, 1, 1), padding=0)

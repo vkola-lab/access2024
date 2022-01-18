@@ -50,7 +50,7 @@ if __name__ == "__main__":
     if SWEEP:
         print('[performing parameters searching...]')
         sweep_config = read_json('./config.json')['sweep_rgan']
-        sweep_id = wandb.sweep(sweep_config, project='rcgan2')
+        sweep_id = wandb.sweep(sweep_config, project='rcgan_sp2')
         wandb.agent(sweep_id, main)
     else:
         main()
