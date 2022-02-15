@@ -1662,3 +1662,233 @@ class AE_Wrapper:
         # TODO: given testing data, produce survival plot, based on time
         # could be a single patient
         return
+
+class MLP_Wrapper:
+    def __init__(self, exp_idx,
+                 model_name, lr, weight_decay, model, model_kwargs,
+                 dataset_kwargs, dataset=ParcellationData,
+                 dataset_external=ParcellationDataNacc):
+        self.seed = exp_idx
+        self.exp_idx = exp_idx
+        self.model_name = model_name
+        self.device = DEVICE
+        self.dataset = dataset
+        self.dataset_kwargs = dataset_kwargs
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.dataset_external = dataset_external
+        self.c_index = []
+        self.checkpoint_dir = './checkpoint_dir/{}_exp{}/'.format(self.model_name, exp_idx)
+        if not os.path.exists(self.checkpoint_dir):
+            os.makedirs(self.checkpoint_dir)
+        self.prepare_dataloader(exp_idx)
+        self.criterion = criterion
+        torch.manual_seed(exp_idx)
+        self.model = model(in_size=self.in_size, **model_kwargs).float()
+        self.model.to(self.device)
+
+    def save_checkpoint(self, loss):
+        # if self.eval_metric(valid_matrix) >= self.optimal_valid_metric:
+
+        score = loss
+        if score <= self.optimal_valid_metric:
+            self.optimal_epoch = self.epoch
+            self.optimal_valid_metric = score
+            for root, Dir, Files in os.walk(self.checkpoint_dir):
+                for File in Files:
+                    if File.endswith('.pth'):
+                        try:
+                            os.remove(self.checkpoint_dir + File)
+                        except:
+                            pass
+            torch.save(self.model.state_dict(),
+                       '{}{}_{}.pth'.format(
+                    self.checkpoint_dir, self.model_name, self.optimal_epoch)
+                       )
+
+    def prepare_dataloader(self, seed):
+        train_data = self.dataset(seed=seed, stage = 'train',
+                                  **self.dataset_kwargs)
+        self.features = train_data.get_features()
+        valid_data = self.dataset(seed=seed, stage = 'valid',
+                                  **self.dataset_kwargs)
+        test_data = self.dataset(seed=seed, stage = 'test',
+                                 **self.dataset_kwargs)
+        all_data = self.dataset(seed=seed, stage='all', **self.dataset_kwargs)
+        nacc_data = self.dataset_external(self.seed, stage='all')
+        self.train_dataloader = DataLoader(train_data, batch_size=len(
+                train_data), shuffle=True, drop_last=True)
+        self.valid_dataloader = DataLoader(valid_data, batch_size=len(
+                valid_data), shuffle=False)
+        self.test_dataloader = DataLoader(test_data, batch_size=len(test_data),
+                                          shuffle=False)
+        self.all_dataloader = DataLoader(all_data, batch_size=len(all_data),
+                                         shuffle=False)
+        self.nacc_dataloader = DataLoader(nacc_data, batch_size=len(nacc_data),
+                                shuffle=False)
+        self.in_size = train_data.data.shape[1]
+        self.all_data = all_data
+        self.train_data = train_data
+        self.test_data = test_data
+        self.nacc_data = nacc_data
+
+    def train(self, epochs):
+        self.val_loss = []
+        self.train_loss = []
+        self.optimal_valid_matrix = None
+        self.optimal_valid_metric = np.inf
+        self.optimal_epoch        = -1
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, betas=(
+                0.5, 0.999), weight_decay=self.weight_decay)
+        for self.epoch in range(epochs):
+                self.train_model_epoch_all(self.optimizer)
+                val_loss = self.valid_model_epoch()
+                self.save_checkpoint(val_loss)
+                self.val_loss.append(val_loss)
+                if self.epoch % 300 == 0:
+                    print('{}: {}th epoch validation score: {}'.format(
+                            self.model_name, self.epoch, val_loss))
+                    logging.debug('{}: {}th epoch validation score:{:.4f}'.format(
+                            self.model_name, self.epoch, val_loss))
+
+        print('Best model saved at the {}th epoch; cox-based loss: {}'.format(
+                self.optimal_epoch, self.optimal_valid_metric))
+        self.optimal_path = '{}{}_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch)
+        print('Location: '.format(self.optimal_path))
+        return self.optimal_valid_metric
+
+    def train_all(self, epochs):
+        self.train_loss = []
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, betas=(
+                0.5, 0.999), weight_decay=self.weight_decay)
+        for self.epoch in range(epochs):
+            self.train_model_epoch_all(self.optimizer)
+            if self.epoch % 30 == 0:
+                print(self.train_loss[-1])
+        self.optimal_path = '{}{}_{}.pth'.format(self.checkpoint_dir,
+                                                 self.model_name, self.epoch)
+        torch.save(self.model.state_dict(),
+                   self.optimal_path
+                   )
+        print('Location: '.format(self.optimal_path))
+
+    def train_model_epoch(self, optimizer):
+        self.model.train(True)
+        for inputs, obss, hits in self.train_dataloader:
+            if torch.sum(hits) == 0:
+                continue
+            self.model.zero_grad()
+            preds = self.model(inputs.to(self.device))
+            loss = self.criterion(preds.to('cpu'), obss, hits)
+            loss.backward()
+            optimizer.step()
+            self.train_loss.append(loss.detach().numpy())
+
+    def train_model_epoch_all(self, optimizer):
+        self.model.train(True)
+        for inputs, obss, hits, _ in self.all_dataloader:
+            if torch.sum(hits) == 0:
+                continue
+            self.model.zero_grad()
+            preds = self.model(inputs.to(self.device))
+            loss = self.criterion(preds.to('cpu'), obss, hits)
+            loss.backward()
+            optimizer.step()
+            self.train_loss.append(loss.detach().numpy())
+
+    def valid_model_epoch(self, c_index=False):
+        with torch.no_grad():
+            self.model.train(False)
+            for data, obss, hits, _ in self.valid_dataloader:
+                preds = self.model(data.to(self.device))
+                loss = self.criterion(preds.to('cpu'), obss,
+                                      hits)
+                if c_index:
+                    preds_raw = np.concatenate((np.ones((preds.shape[0],1)),
+                    np.cumprod(preds.numpy(), axis=1)), axis=1)
+                    interp = interpolate.interp1d([0, 12, 24, 36, 108], preds_raw, axis=-1,
+                                      kind='quadratic')
+                    preds = interp(24)
+                    c_index = concordance_index_censored(hits.numpy() == 1, obss.numpy(),
+                                             -preds)
+                    return loss, c_index
+        return loss
+
+    def plot_val_loss(self):
+        title = self.model_name + ' ' + str(self.exp_idx)
+        fig, ax = plt.subplots()
+        ax.plot(list(range(len(self.val_loss))), self.val_loss, label=title +
+                                                                      ' valid')
+        ax.plot(list(range(len(self.train_loss))), self.train_loss,
+                label=title + ' train')
+
+        ax.set(xlabel='Step #', ylabel='CPH loss', title=title)
+        ax.legend()
+        fig.savefig(title.replace(' ','_') + '.png')
+
+    def plot_train_loss(self):
+        title = self.model_name + ' ' + str(self.exp_idx)
+        fig, ax = plt.subplots()
+        ax.plot(list(range(len(self.train_loss))), self.train_loss,
+                label=title + ' train')
+
+        ax.set(xlabel='Step #', ylabel='CPH loss', title=title)
+        ax.legend()
+        fig.savefig(title.replace(' ','_') + '.png')
+
+    def test_data_optimal_epoch(self, external_data=False, return_preds=False):
+        if external_data:
+            dataloader = self.nacc_dataloader
+            dataset = self.nacc_data
+        else:
+            dataloader = self.test_dataloader
+            dataset = self.test_data
+        with torch.no_grad():
+            self.model.train(False)
+            for data, obss, hits, _ in dataloader:
+                preds = self.model(data.to(self.device))
+        c_index = concordance_index_censored(hits.numpy() == 1, obss.numpy(),
+                  preds.to('cpu').numpy().squeeze())
+        if return_preds:
+            return c_index, preds.to('cpu').numpy().squeeze(), dataset.fileIDs
+        return c_index[0]
+
+    def eval_data_optimal_epoch(self, external_data=False):
+        if external_data:
+            dataloader = self.nacc_dataloader
+        else:
+            dataloader = self.test_dataloader
+        with torch.no_grad():
+            self.model.train(False)
+            for data, _, _, rids in dataloader:
+                preds = self.model(data.to(self.device)).to('cpu')
+                return preds, rids
+
+    def test_surv_data_optimal_epoch(self, bins, concordance_time=24,
+                                     external_data=False, return_preds = False):
+        if external_data:
+            dataloader = self.nacc_dataloader
+        else:
+            dataloader = self.test_dataloader
+        with torch.no_grad():
+            self.model.train(False)
+            for data, obss, hits, rids in dataloader:
+                preds = self.model(data.to(self.device)).to('cpu')
+                rids = rids
+                test_struc = np.array([(x,y) for x,y in zip(hits == 1, obss)], dtype=[('hit',bool),('time',float)])
+            for _, obss_train, hits_train, _ in self.train_dataloader:
+                train_struc = np.array([(x,y) for x,y in zip(hits_train == 1, obss_train)], dtype=[('hit',bool),('time',float)])
+        preds_raw = np.concatenate((np.ones((preds.shape[0],1)),
+                          np.cumprod(preds.numpy(), axis=1)), axis=1)
+        bins2 = bins.copy()
+        bins2[-1] = max(obss) - 1
+        interp = interpolate.interp1d(bins2, preds_raw, axis=-1,
+                                      kind='quadratic')
+        preds = interp(concordance_time)
+        c_index = concordance_index_censored(hits.numpy() == 1, obss.numpy(),
+                                             1-preds)
+        preds_brier = interp(bins2)
+        brier_scores = integrated_brier_score(train_struc, test_struc, preds_brier, bins2)
+        if return_preds:
+            return c_index[0], brier_scores, preds_raw, rids, interp
+        return c_index[0], brier_scores
