@@ -233,7 +233,7 @@ def random_partition(idxs, ratio, stage):
         raise ValueError(f'Unexpected Stage: {stage}!')
     return index_list
 
-class ParcellationDataMeta(Dataset):
+class ParcellationData(Dataset):
     def __init__(self, exp_idx, seed=1000, stage='train', dataset='ADNI', ratio=(0.6, 0.2, 0.2), add_age=False,
                  add_mmse=False):
         random.seed(seed)

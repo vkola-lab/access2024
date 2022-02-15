@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from sklearn.metrics import classification_report
 
-from dataloader import B_Data
+from dataloader import B_Data, ParcellationData
 from models import _G_Model, _D_Model, _Gs_Model, _CNN
 from utils import write_raw_score
 
@@ -1664,37 +1664,56 @@ class AE_Wrapper:
         return
 
 class MLP_Wrapper:
-    def __init__(self, exp_idx,
+    def __init__(self, seed, exp_idx,
                  model_name, lr, weight_decay, model, model_kwargs,
-                 dataset_kwargs, dataset=ParcellationData,
-                 dataset_external=ParcellationDataNacc):
-        self.seed = exp_idx
+                 ratio=(0.6, 0.2, 0.2),
+                 add_age=False,
+                 add_mmse=False):
+        self._age = add_age
+        self._mmse = add_mmse
+        self._ratio = ratio
+        self.seed = seed
+        torch.manual_seed(self.seed)
         self.exp_idx = exp_idx
         self.model_name = model_name
-        self.device = DEVICE
-        self.dataset = dataset
-        self.dataset_kwargs = dataset_kwargs
+        self.device = device
+        self.dataset = ParcellationData
         self.lr = lr
         self.weight_decay = weight_decay
-        self.dataset_external = dataset_external
         self.c_index = []
         self.checkpoint_dir = './checkpoint_dir/{}_exp{}/'.format(self.model_name, exp_idx)
         if not os.path.exists(self.checkpoint_dir):
             os.makedirs(self.checkpoint_dir)
-        self.prepare_dataloader(exp_idx)
+        self.prepare_dataloader()
         self.criterion = criterion
-        torch.manual_seed(exp_idx)
         self.model = model(in_size=self.in_size, **model_kwargs).float()
         self.model.to(self.device)
 
-    def save_checkpoint(self, loss):
-        # if self.eval_metric(valid_matrix) >= self.optimal_valid_metric:
+    def prepare_dataloader(self):
+        kwargs = dict(exp_idx=self.exp_idx, 
+                    seed=self.seed,
+                    ratio=self._ratio,
+                    add_age=self._age,
+                    add_mmse=self._mmse)
+        self.train_data = self.dataset(stage = 'train', dataset='ADNI', **kwargs)
+        self.features = self.train_data.get_features()
+        self.valid_data = self.dataset(stage = 'valid', dataset='ADNI', **kwargs)
+        self.test_data = self.dataset(stage = 'test', dataset='ADNI', **kwargs)
+        self.all_data = self.dataset(stage='all', dataset='ADNI', **kwargs)
+        self.nacc_data = self.dataset(stage='all', dataset='NACC', **kwargs)
+        self.train_dataloader = DataLoader(self.train_data, batch_size=len(self.train_data))
+        self.valid_dataloader = DataLoader(self.valid_data, batch_size=len(self.valid_data))
+        self.test_dataloader = DataLoader(self.test_data, batch_size=len(self.test_data))
+        self.all_dataloader = DataLoader(self.all_data, batch_size=len(self.all_data),
+                                         shuffle=False)
+        self.nacc_dataloader = DataLoader(self.nacc_data, batch_size=len(self.nacc_data))
 
+    def save_checkpoint(self, loss):
         score = loss
         if score <= self.optimal_valid_metric:
             self.optimal_epoch = self.epoch
             self.optimal_valid_metric = score
-            for root, Dir, Files in os.walk(self.checkpoint_dir):
+            for root, _, Files in os.walk(self.checkpoint_dir):
                 for File in Files:
                     if File.endswith('.pth'):
                         try:
@@ -1706,32 +1725,6 @@ class MLP_Wrapper:
                     self.checkpoint_dir, self.model_name, self.optimal_epoch)
                        )
 
-    def prepare_dataloader(self, seed):
-        train_data = self.dataset(seed=seed, stage = 'train',
-                                  **self.dataset_kwargs)
-        self.features = train_data.get_features()
-        valid_data = self.dataset(seed=seed, stage = 'valid',
-                                  **self.dataset_kwargs)
-        test_data = self.dataset(seed=seed, stage = 'test',
-                                 **self.dataset_kwargs)
-        all_data = self.dataset(seed=seed, stage='all', **self.dataset_kwargs)
-        nacc_data = self.dataset_external(self.seed, stage='all')
-        self.train_dataloader = DataLoader(train_data, batch_size=len(
-                train_data), shuffle=True, drop_last=True)
-        self.valid_dataloader = DataLoader(valid_data, batch_size=len(
-                valid_data), shuffle=False)
-        self.test_dataloader = DataLoader(test_data, batch_size=len(test_data),
-                                          shuffle=False)
-        self.all_dataloader = DataLoader(all_data, batch_size=len(all_data),
-                                         shuffle=False)
-        self.nacc_dataloader = DataLoader(nacc_data, batch_size=len(nacc_data),
-                                shuffle=False)
-        self.in_size = train_data.data.shape[1]
-        self.all_data = all_data
-        self.train_data = train_data
-        self.test_data = test_data
-        self.nacc_data = nacc_data
-
     def train(self, epochs):
         self.val_loss = []
         self.train_loss = []
@@ -1741,16 +1734,13 @@ class MLP_Wrapper:
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, betas=(
                 0.5, 0.999), weight_decay=self.weight_decay)
         for self.epoch in range(epochs):
-                self.train_model_epoch_all(self.optimizer)
+                self.train_model_epoch(self.optimizer)
                 val_loss = self.valid_model_epoch()
                 self.save_checkpoint(val_loss)
                 self.val_loss.append(val_loss)
                 if self.epoch % 300 == 0:
                     print('{}: {}th epoch validation score: {}'.format(
                             self.model_name, self.epoch, val_loss))
-                    logging.debug('{}: {}th epoch validation score:{:.4f}'.format(
-                            self.model_name, self.epoch, val_loss))
-
         print('Best model saved at the {}th epoch; cox-based loss: {}'.format(
                 self.optimal_epoch, self.optimal_valid_metric))
         self.optimal_path = '{}{}_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch)
@@ -1784,57 +1774,14 @@ class MLP_Wrapper:
             optimizer.step()
             self.train_loss.append(loss.detach().numpy())
 
-    def train_model_epoch_all(self, optimizer):
-        self.model.train(True)
-        for inputs, obss, hits, _ in self.all_dataloader:
-            if torch.sum(hits) == 0:
-                continue
-            self.model.zero_grad()
-            preds = self.model(inputs.to(self.device))
-            loss = self.criterion(preds.to('cpu'), obss, hits)
-            loss.backward()
-            optimizer.step()
-            self.train_loss.append(loss.detach().numpy())
-
-    def valid_model_epoch(self, c_index=False):
+    def valid_model_epoch(self):
         with torch.no_grad():
             self.model.train(False)
             for data, obss, hits, _ in self.valid_dataloader:
                 preds = self.model(data.to(self.device))
                 loss = self.criterion(preds.to('cpu'), obss,
                                       hits)
-                if c_index:
-                    preds_raw = np.concatenate((np.ones((preds.shape[0],1)),
-                    np.cumprod(preds.numpy(), axis=1)), axis=1)
-                    interp = interpolate.interp1d([0, 12, 24, 36, 108], preds_raw, axis=-1,
-                                      kind='quadratic')
-                    preds = interp(24)
-                    c_index = concordance_index_censored(hits.numpy() == 1, obss.numpy(),
-                                             -preds)
-                    return loss, c_index
         return loss
-
-    def plot_val_loss(self):
-        title = self.model_name + ' ' + str(self.exp_idx)
-        fig, ax = plt.subplots()
-        ax.plot(list(range(len(self.val_loss))), self.val_loss, label=title +
-                                                                      ' valid')
-        ax.plot(list(range(len(self.train_loss))), self.train_loss,
-                label=title + ' train')
-
-        ax.set(xlabel='Step #', ylabel='CPH loss', title=title)
-        ax.legend()
-        fig.savefig(title.replace(' ','_') + '.png')
-
-    def plot_train_loss(self):
-        title = self.model_name + ' ' + str(self.exp_idx)
-        fig, ax = plt.subplots()
-        ax.plot(list(range(len(self.train_loss))), self.train_loss,
-                label=title + ' train')
-
-        ax.set(xlabel='Step #', ylabel='CPH loss', title=title)
-        ax.legend()
-        fig.savefig(title.replace(' ','_') + '.png')
 
     def test_data_optimal_epoch(self, external_data=False, return_preds=False):
         if external_data:
@@ -1847,8 +1794,6 @@ class MLP_Wrapper:
             self.model.train(False)
             for data, obss, hits, _ in dataloader:
                 preds = self.model(data.to(self.device))
-        c_index = concordance_index_censored(hits.numpy() == 1, obss.numpy(),
-                  preds.to('cpu').numpy().squeeze())
         if return_preds:
             return c_index, preds.to('cpu').numpy().squeeze(), dataset.fileIDs
         return c_index[0]
