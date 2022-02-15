@@ -5,10 +5,14 @@
 import json
 import csv
 import os, sys
-import matlab.engine
+try:
+    import matlab.engine
+except:
+    matlab = None
 import collections
 
 import numpy as np
+import pandas as pd
 
 from skimage import img_as_float
 from scipy.interpolate import interp1d
@@ -19,6 +23,13 @@ from skimage.metrics import structural_similarity as ssim
 def read_json(filename):
     with open(filename) as buf:
         return json.loads(buf.read())
+
+def drop_ventricles(df, ventricle_list):
+    df.drop(columns=ventricle_list, inplace=True)
+
+def add_ventricle_info(parcellation_df, ventricle_df, ventricles):
+    return parcellation_df.merge(ventricle_df[['RID'] + ventricles], on='RID',
+                          validate="one_to_one")
 
 def write_raw_score(f, preds, labels):
     # preds = preds.data.cpu().numpy()
@@ -231,6 +242,63 @@ def iqa_tensor(tensor, eng, metric, filename='', target=''):
 def p_val(o, g):
     t, p = stats.ttest_ind(o, g, equal_var=True)
     return p
+
+def retrieve_kfold_partition(idxs, stage, folds=5, exp_idx=1, shuffle=True,
+                              random_state=120):
+    idxs = np.asarray(idxs).copy()
+    if shuffle:
+        np.random.seed(random_state)
+        idxs = np.random.permutation(idxs)
+    if 'all' in stage:
+        return idxs
+    if len(idxs.shape) > 1: raise ValueError
+    fold_len = len(idxs) // folds
+    folds_stitched = []
+    for f in range(folds):
+        folds_stitched.append(idxs[f*fold_len:(f+1)*fold_len])
+    test_idx = exp_idx
+    valid_idx = (exp_idx+1) % folds
+    train_idx = np.setdiff1d(np.arange(0,folds,1),[test_idx, valid_idx])
+    if 'test' in stage:
+        return folds_stitched[test_idx]
+    elif 'valid' in stage:
+        return folds_stitched[valid_idx]
+    elif 'train' in stage:
+        return np.concatenate([folds_stitched[x] for x in train_idx], axis=0)
+    else:
+        raise ValueError
+
+def deabbreviate_parcellation_columns(df):
+    df_dict = pd.read_csv(
+            './metadata/data_raw/neuromorphometrics/neuromorphometrics.csv',
+                          usecols=['ROIabbr','ROIname'],sep=';')
+    df_dict = df_dict.loc[[x[0] == 'l' for x in df_dict['ROIabbr']],:]
+    df_dict['ROIabbr'] = df_dict['ROIabbr'].apply(
+            lambda x: x[1:]
+    )
+    df_dict['ROIname'] = df_dict['ROIname'].apply(
+            lambda x: x.replace('Left ', '')
+    )
+    df_dict = df_dict.set_index('ROIabbr').to_dict()['ROIname']
+    df.rename(columns=df_dict, inplace=True)
+
+def read_csv_demog(filename, skip_ids: list=None):
+    with open(filename, 'r') as f:
+        reader = csv.DictReader(f)
+        fileIDs, time_obs, hit, age, mmse = [], [], [], [], []
+        for r in reader:
+            if skip_ids is not None:
+                if r['RID'] in skip_ids:
+                    continue
+            fileIDs += [str(r['RID'])]
+            time_obs += [float(r['TIMES'])]  # changed to TIMES_ROUNDED. consider switching so observations for progressors are all < 1 year
+            hit += [int(float(r['PROGRESSES']))]
+            age += [float(r['AGE'])]
+            if 'MMSCORE_mmse' in r.keys():
+                mmse += [float(r['MMSCORE_mmse'])]
+            else:
+                mmse += [np.nan if r['MMSE'] == '' else float(r['MMSE'])]
+    return fileIDs, np.asarray(time_obs), np.asarray(hit), age, mmse
 
 if __name__ == "__main__":
     csvname = './csvs/merged_dataframe_cox_noqc_pruned_final.csv'
