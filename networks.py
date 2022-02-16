@@ -16,10 +16,12 @@ import matplotlib.pyplot as plt
 
 from torch.utils.data import DataLoader
 from sklearn.metrics import classification_report
+from sksurv.metrics import integrated_brier_score, concordance_index_censored
 
 from dataloader import B_Data, ParcellationData
 from models import _G_Model, _D_Model, _Gs_Model, _CNN
 from utils import write_raw_score
+from loss_functions import sur_loss
 
 torch.set_num_threads(1) # may lower training speed (and potentially overheat issue) if machine has many cpus!
 device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
@@ -1666,12 +1668,10 @@ class AE_Wrapper:
 class MLP_Wrapper:
     def __init__(self, seed, exp_idx,
                  model_name, lr, weight_decay, model, model_kwargs,
-                 ratio=(0.6, 0.2, 0.2),
                  add_age=False,
                  add_mmse=False):
         self._age = add_age
         self._mmse = add_mmse
-        self._ratio = ratio
         self.seed = seed
         torch.manual_seed(self.seed)
         self.exp_idx = exp_idx
@@ -1685,14 +1685,13 @@ class MLP_Wrapper:
         if not os.path.exists(self.checkpoint_dir):
             os.makedirs(self.checkpoint_dir)
         self.prepare_dataloader()
-        self.criterion = criterion
+        self.criterion = sur_loss
         self.model = model(in_size=self.in_size, **model_kwargs).float()
         self.model.to(self.device)
 
     def prepare_dataloader(self):
         kwargs = dict(exp_idx=self.exp_idx, 
                     seed=self.seed,
-                    ratio=self._ratio,
                     add_age=self._age,
                     add_mmse=self._mmse)
         self.train_data = self.dataset(stage = 'train', dataset='ADNI', **kwargs)
@@ -1747,21 +1746,6 @@ class MLP_Wrapper:
         print('Location: '.format(self.optimal_path))
         return self.optimal_valid_metric
 
-    def train_all(self, epochs):
-        self.train_loss = []
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, betas=(
-                0.5, 0.999), weight_decay=self.weight_decay)
-        for self.epoch in range(epochs):
-            self.train_model_epoch_all(self.optimizer)
-            if self.epoch % 30 == 0:
-                print(self.train_loss[-1])
-        self.optimal_path = '{}{}_{}.pth'.format(self.checkpoint_dir,
-                                                 self.model_name, self.epoch)
-        torch.save(self.model.state_dict(),
-                   self.optimal_path
-                   )
-        print('Location: '.format(self.optimal_path))
-
     def train_model_epoch(self, optimizer):
         self.model.train(True)
         for inputs, obss, hits in self.train_dataloader:
@@ -1782,21 +1766,6 @@ class MLP_Wrapper:
                 loss = self.criterion(preds.to('cpu'), obss,
                                       hits)
         return loss
-
-    def test_data_optimal_epoch(self, external_data=False, return_preds=False):
-        if external_data:
-            dataloader = self.nacc_dataloader
-            dataset = self.nacc_data
-        else:
-            dataloader = self.test_dataloader
-            dataset = self.test_data
-        with torch.no_grad():
-            self.model.train(False)
-            for data, obss, hits, _ in dataloader:
-                preds = self.model(data.to(self.device))
-        if return_preds:
-            return c_index, preds.to('cpu').numpy().squeeze(), dataset.fileIDs
-        return c_index[0]
 
     def eval_data_optimal_epoch(self, external_data=False):
         if external_data:
@@ -1828,7 +1797,7 @@ class MLP_Wrapper:
         bins2 = bins.copy()
         bins2[-1] = max(obss) - 1
         interp = interpolate.interp1d(bins2, preds_raw, axis=-1,
-                                      kind='quadratic')
+                                      kind='pchip')
         preds = interp(concordance_time)
         c_index = concordance_index_censored(hits.numpy() == 1, obss.numpy(),
                                              1-preds)

@@ -214,7 +214,7 @@ class B_IQ_Data(Dataset):
         return weights, class_weights
 
 
-def random_partition(idxs, ratio, stage):
+def random_partition(idxs, stage, ratio=(0.6, 0.2, 0.2)):
     if type(idxs) == int:
         idxs = list(range(idxs))
     l = len(idxs)
@@ -235,11 +235,12 @@ def random_partition(idxs, ratio, stage):
 
 class ParcellationData(Dataset):
     def __init__(self, exp_idx, seed=1000, stage='train', dataset='ADNI', ratio=(0.6, 0.2, 0.2), add_age=False,
-                 add_mmse=False):
+                 add_mmse=False, partitioner=retrieve_kfold_partition):
         random.seed(seed)
         self.exp_idx = exp_idx
         self.ratio = ratio
         self.stage = stage
+        self.partitioner = partitioner
         json_props = read_json('./mlp_config.json')
         self.csv_directory = json_props['datadir']
         self.csvname = self.csv_directory + json_props['metadata_fi'][dataset]
@@ -263,7 +264,7 @@ class ParcellationData(Dataset):
 
     def _prep_data(self, feature_df):
         idxs = list(range(len(self.rids)))
-        self.index_list = random_partition(idxs, self.ratio, self.stage)
+        self.index_list = self.partitioner(idxs, self.stage)
         self.rid = np.array(self.rids)
         self.labels = feature_df.columns
         self.data_l = feature_df.to_numpy()
