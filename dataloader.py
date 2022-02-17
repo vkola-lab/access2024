@@ -11,7 +11,6 @@ import torch
 import numpy as np
 import nibabel as nib
 import pandas as pd
-import pandera as pa
 
 from torch.utils.data import Dataset
 from utils import read_csv_sp as read_csv, read_csv_cox_ext as read_csv_ext, \
@@ -264,8 +263,13 @@ class ParcellationData(Dataset):
 
     def _prep_data(self, feature_df):
         idxs = list(range(len(self.rids)))
-        self.index_list = self.partitioner(idxs, self.stage)
+        self.index_list = self.partitioner(idxs, stage=self.stage, exp_idx=self.exp_idx)
         self.rid = np.array(self.rids)
+        feature_df.drop(columns=["CSF",
+                        "3thVen",
+                        "4thVen",
+                        "InfLatVen",
+                        "LatVen"], inplace=True)
         self.labels = feature_df.columns
         self.data_l = feature_df.to_numpy()
         self.data_l = torch.FloatTensor(self.data_l)
