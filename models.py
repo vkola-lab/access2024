@@ -15,7 +15,7 @@ import torch
 
 class _MLP_Surv(nn.Module):
     def __init__(self, in_size, drop_rate, fil_num,
-                 output_shape=3):
+                 output_shape=1):
         super(_MLP_Surv, self).__init__()
         self.bn1 = nn.BatchNorm1d(in_size)
         self.bn2 = nn.BatchNorm1d(fil_num)

@@ -19,7 +19,7 @@ from sklearn.metrics import classification_report
 from sksurv.metrics import integrated_brier_score, concordance_index_censored
 from scipy import interpolate
 
-from dataloader import B_Data, ParcellationData
+from dataloader import B_Data, ParcellationDataBinary
 from models import _G_Model, _D_Model, _Gs_Model, _CNN, _MLP_Surv
 from utils import write_raw_score
 from loss_functions import sur_loss
@@ -1667,8 +1667,13 @@ class AE_Wrapper:
         return
 
 class MLP_Wrapper:
-    def __init__(self, seed, exp_idx,
-                 model_name, lr, weight_decay, model, model_kwargs,
+    def __init__(self, 
+                 exp_idx,
+                 model_name,
+                 lr,
+                 weight_decay,
+                 model,
+                 model_kwargs,
                  add_age=False,
                  add_mmse=False):
         self._age = add_age
@@ -1677,7 +1682,7 @@ class MLP_Wrapper:
         self.exp_idx = exp_idx
         self.model_name = model_name
         self.device = device
-        self.dataset = ParcellationData
+        self.dataset = ParcellationDataBinary
         self.lr = lr
         self.weight_decay = weight_decay
         self.c_index = []
@@ -1686,23 +1691,21 @@ class MLP_Wrapper:
             os.makedirs(self.checkpoint_dir)
         self.prepare_dataloader()
         torch.manual_seed(self.seed)
-        self.criterion = sur_loss
+        self.criterion = nn.BCELoss().to(self.device)
         self.model = model(in_size=self.in_size, **model_kwargs).float()
         self.model.to(self.device)
 
     def prepare_dataloader(self):
         kwargs = dict(exp_idx=self.exp_idx,
-                    seed=1000,
                     add_age=self._age,
                     add_mmse=self._mmse)
         self.train_data = self.dataset(stage = 'train', dataset='ADNI', **kwargs)
         self.features = self.train_data.get_features()
-        print(len(self.features))
         self.in_size = len(self.features)
         self.valid_data = self.dataset(stage = 'valid', dataset='ADNI', **kwargs)
         self.test_data = self.dataset(stage = 'test', dataset='ADNI', **kwargs)
-        self.all_data = self.dataset(stage='all', dataset='ADNI', **kwargs)
-        self.nacc_data = self.dataset(stage='all', dataset='NACC', **kwargs)
+        self.all_data = self.dataset(stage= 'all', dataset='ADNI', **kwargs)
+        self.nacc_data = self.dataset(stage= 'all', dataset='NACC', **kwargs)
         self.train_dataloader = DataLoader(self.train_data, batch_size=len(self.train_data))
         self.valid_dataloader = DataLoader(self.valid_data, batch_size=len(self.valid_data))
         self.test_dataloader = DataLoader(self.test_data, batch_size=len(self.test_data))
@@ -1757,23 +1760,19 @@ class MLP_Wrapper:
 
     def train_model_epoch(self, optimizer):
         self.model.train()
-        for inputs, obss, hits, _ in self.train_dataloader:
-            if torch.sum(hits) == 0:
-                continue
+        for data, pmci, _ in self.train_dataloader:
             self.model.zero_grad()
-            preds = self.model(inputs.to(self.device))
-            loss = self.criterion(preds.to('cpu'), obss, hits)
+            preds = self.model(data.to(self.device).float())
+            loss = self.criterion(preds.squeeze(),pmci.to(self.device).float().squeeze())
             loss.backward()
             optimizer.step()
-            self.train_loss.append(loss.detach().numpy())
 
     def valid_model_epoch(self):
         with torch.no_grad():
-            self.model.train(False)
-            for data, obss, hits, _ in self.valid_dataloader:
-                preds = self.model(data.to(self.device))
-                loss = self.criterion(preds.to('cpu'), obss,
-                                      hits)
+            self.model.eval()
+            for data, pmci, _ in self.valid_dataloader:
+                preds = self.model(data.to(self.device).float())
+                loss = self.criterion(preds.squeeze(),pmci.to(self.device).float().squeeze())
         return loss
         
     def retrieve_testing_data(self, external_data):
@@ -1783,217 +1782,45 @@ class MLP_Wrapper:
             dataloader = self.test_dataloader
         with torch.no_grad():
             self.load()
-            self.model.train(False)
-            for data, obss, hits, rids in dataloader:
-                preds = self.model(data.to(self.device)).to('cpu')
+            self.model.eval()
+            for data, pmci, rids in dataloader:
+                preds = self.model(data.to(self.device).float()).to('cpu')
+                preds = torch.round(preds)
                 rids = rids
-                test_struc = make_struc_array(hits, obss)
-            for _, obss_train, hits_train, _ in self.train_dataloader:
-                train_struc = make_struc_array(hits_train, obss_train)
-        return preds, train_struc, test_struc, rids
+            return preds, pmci, rids
 
-    def test_surv_data_optimal_epoch(self, bins, concordance_time=24,
-                                     external_data=False, return_preds = False):
-        preds, train_struc, test_struc, rids = self.retrieve_testing_data(external_data)                             
-        preds_raw = np.concatenate((np.ones((preds.shape[0],1)),
-                          np.cumprod(preds.numpy(), axis=1)), axis=1)
-        c_index = concordance_index_censored(test_struc['hit'], test_struc['time'],
-                                             1-np.squeeze(preds_raw[:,bins==concordance_time]))
-        brier_scores, interp = retrieve_brier_scores(bins, preds_raw, train_struc, test_struc)
-        if return_preds:
-            return c_index[0], brier_scores, preds_raw, rids, interp
-        return c_index[0], brier_scores
+    def test_surv_data_optimal_epoch(self, external_data=False):
+        key = ['ADNI' if not external_data else 'NACC']
+        preds, pmci, rids = self.retrieve_testing_data(external_data)                             
+        f = open(self.checkpoint_dir + 'raw_score_{}_{}.txt'.format(key, self.exp_idx), 'w')
+        write_raw_score(f, preds, pmci)
+        f.close()
+        report = classification_report(
+            y_true=pmci,
+            y_pred=preds, labels=[0,1],
+            target_names= key,
+            zero_division=0, output_dict=False)
+        print(report)
 
-class MLP_Wrapper_Meta:
-    def __init__(self, exp_idx,
-                 model_name, lr, weight_decay, model, model_kwargs,
-                 dataset_kwargs,
-                 criterion, dataset=ParcellationDataVentricles,
-                 dataset_external=ParcellationDataVentriclesNacc):
-        self.seed = exp_idx
-        self.exp_idx = exp_idx
-        self.model_name = model_name
-        self.device = device
-        self.dataset = dataset
-        self.dataset_kwargs = dataset_kwargs
-        self.lr = lr
-        self.weight_decay = weight_decay
-        self.dataset_external = dataset_external
-        self.c_index = []
-        self.checkpoint_dir = './checkpoint_dir/{}_exp{}/'.format(self.model_name, exp_idx)
-        if not os.path.exists(self.checkpoint_dir):
-            os.makedirs(self.checkpoint_dir)
-        self.prepare_dataloader(exp_idx)
-        self.criterion = criterion
-        torch.manual_seed(exp_idx)
-        self.model = model(in_size=self.in_size, **model_kwargs).float()
-        self.model.to(self.device)
-
-    def save_checkpoint(self, loss):
-        # if self.eval_metric(valid_matrix) >= self.optimal_valid_metric:
-
-        score = loss
-        if score <= self.optimal_valid_metric:
-            self.optimal_epoch = self.epoch
-            self.optimal_valid_metric = score
-            for _, _, Files in os.walk(self.checkpoint_dir):
-                for File in Files:
-                    if File.endswith('.pth'):
-                        try:
-                            os.remove(self.checkpoint_dir + File)
-                        except:
-                            pass
-            torch.save(self.model.state_dict(),
-                       '{}{}_{}.pth'.format(
-                    self.checkpoint_dir, self.model_name, self.optimal_epoch)
-                       )
-
-    def load_checkpoint(self):
-        fi = glob.glob(f'{self.checkpoint_dir}{self.model_name}_*.pth')
-        assert(len(fi) == 1)
-        self.model.load_state_dict(torch.load(fi[0]))
-        self.optimal_path = fi[0]
-
-    def prepare_dataloader(self, seed):
-        train_data = self.dataset(seed=seed, stage = 'train',
-                                  **self.dataset_kwargs)
-        self.features = train_data.get_features()
-        valid_data = self.dataset(seed=seed, stage = 'valid',
-                                  **self.dataset_kwargs)
-        test_data = self.dataset(seed=seed, stage = 'test',
-                                 **self.dataset_kwargs)
-        all_data = self.dataset(seed=seed, stage='all', **self.dataset_kwargs)
-        nacc_data = self.dataset_external(self.seed, stage='all')
-        self.train_dataloader = DataLoader(train_data, batch_size=len(train_data))
-        self.valid_dataloader = DataLoader(valid_data, batch_size=len(valid_data))
-        self.test_dataloader = DataLoader(test_data, batch_size=len(test_data),
-                                          shuffle=False)
-        self.all_dataloader = DataLoader(all_data, batch_size=len(all_data),
-                                         shuffle=False)
-        self.nacc_dataloader = DataLoader(nacc_data, batch_size=len(nacc_data),
-                                shuffle=False)
-        self.in_size = train_data.data.shape[1]
-        self.all_data = all_data
-        self.train_data = train_data
-        self.test_data = test_data
-        self.nacc_data = nacc_data
-
-    def train(self, epochs):
-        self.val_loss = []
-        self.optimal_valid_matrix = None
-        self.optimal_valid_metric = np.inf
-        self.optimal_epoch        = -1
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, betas=(
-                0.5, 0.999), weight_decay=self.weight_decay)
-        for self.epoch in range(epochs):
-                self.train_model_epoch(self.optimizer)
-                val_loss = self.valid_model_epoch()
-                self.save_checkpoint(val_loss)
-                self.val_loss.append(val_loss)
-                if self.epoch % 300 == 0:
-                    print('{}: {}th epoch validation score: {}'.format(
-                            self.model_name, self.epoch, val_loss))
-        print('Best model saved at the {}th epoch; cox-based loss: {}'.format(
-                self.optimal_epoch, self.optimal_valid_metric))
-        self.optimal_path = '{}{}_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch)
-        print('Location: '.format(self.optimal_path))
-        return self.optimal_valid_metric
-
-    def train_model_epoch(self, optimizer):
-        self.model.train(True)
-        for inputs, obss, hits, _ in self.train_dataloader:
-            if torch.sum(hits) == 0:
-                continue
-            self.model.zero_grad()
-            preds = self.model(inputs.to(self.device))
-            loss = self.criterion(preds.to('cpu'), obss, hits)
-            loss.backward()
-            optimizer.step()
-
-    def valid_model_epoch(self):
-        with torch.no_grad():
-            self.model.train(False)
-            for data, obss, hits, _ in self.valid_dataloader:
-                preds = self.model(data.to(self.device))
-                loss = self.criterion(preds.to('cpu'), obss,
-                                      hits)
-        return loss
-
-    def eval_data_optimal_epoch(self, external_data=False):
-        if external_data:
-            dataloader = self.nacc_dataloader
-        else:
-            dataloader = self.test_dataloader
-        with torch.no_grad():
-            self.load_checkpoint()
-            self.model.train(False)
-            for data, _, _, rids in dataloader:
-                preds = self.model(data.to(self.device)).to('cpu')
-                return preds, rids
-
-    def retrieve_testing_data(self, external_data):
-        if external_data:
-            dataloader = self.nacc_dataloader
-        else:
-            dataloader = self.test_dataloader
-        with torch.no_grad():
-            self.load_checkpoint()
-            self.model.train(False)
-            for data, obss, hits, rids in dataloader:
-                preds = self.model(data.to(self.device)).to('cpu')
-                rids = rids
-                test_struc = make_struc_array(hits, obss)
-            for _, obss_train, hits_train, _ in self.train_dataloader:
-                train_struc = make_struc_array(hits_train, obss_train)
-        return preds, train_struc, test_struc, rids
-
-    def test_surv_data_optimal_epoch(self, bins, concordance_time=24,
-                                     external_data=False, return_preds = False):
-        preds, train_struc, test_struc, rids = self.retrieve_testing_data(external_data)                             
-        preds_raw = np.concatenate((np.ones((preds.shape[0],1)),
-                          np.cumprod(preds.numpy(), axis=1)), axis=1)
-        c_index = concordance_index_censored(test_struc['hit'], test_struc['time'],
-                                             1-np.squeeze(preds_raw[:,bins==concordance_time]))
-        brier_scores, interp = retrieve_brier_scores(bins, preds_raw, train_struc, test_struc)
-        if return_preds:
-            return c_index[0], brier_scores, preds_raw, rids, interp
-        return c_index[0], brier_scores
-
-def make_struc_array(hits, obss):
-    return np.array([(x,y) for x,y in zip(hits == 1, obss)], dtype=[('hit',bool),('time',float)])
-
-def retrieve_brier_scores(bins, preds_raw, train_struc, test_struc):
-    bins = bins.copy()
-    new_max = min(float(max(test_struc['time'])),108)
-    truncated_bins = np.concatenate([bins[:-1],[new_max-1]], axis=-1)
-    interp = interpolate.PchipInterpolator(bins, preds_raw, axis=1)
-    preds_brier = interp(truncated_bins)
-    brier_scores = integrated_brier_score(train_struc, test_struc, preds_brier, truncated_bins)
-    return brier_scores, interp
 
 def _test():
-    c_index, brier = [], []
     mlp_list = []
     for exp in range(5):
         mlp = MLP_Wrapper(
-            seed=1000,
             exp_idx=exp,
-            model_name = f'mlp_test_{exp}',
+            model_name = f'mlp_bce_{exp}',
             lr = 0.01,
             weight_decay=0,
             model=_MLP_Surv,
-            model_kwargs=dict(drop_rate=0.5, fil_num=100,
-                 output_shape=3)
+            model_kwargs=dict(
+                drop_rate=0.5,
+                fil_num=100,
+                output_shape=1)
         )
         mlp_list.append(mlp)
     for mlp in mlp_list:
-        mlp.train(5000)
-        c,b = mlp.test_surv_data_optimal_epoch(bins=np.array([0, 24, 48, 108]))
-        c_index.append(c)
-        brier.append(b)
-    print(np.mean(brier), np.std(brier))
-    print(np.mean(c_index),np.std(c_index))
-
+        mlp.train(1000)
+        mlp.test_surv_data_optimal_epoch(external_data=True)
 
 if __name__ == "__main__":
     _test()

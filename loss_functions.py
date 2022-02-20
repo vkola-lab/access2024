@@ -1,7 +1,6 @@
 import torch
-from torch import Tensor
-
-def sur_loss(preds, obss, hits, bins=Tensor([[0, 24, 48, 108]])):
+# using x entropy loss. 3 year threshold, right inclusive (so if survive to 3 years, not progressors)
+def sur_loss(preds, obss, hits, bins=torch.cuda.FloatTensor([[0, 24, 48, 108]])):
     bin_centers = (bins[0, 1:] + bins[0, :-1])/2
     survived_bins_censored = torch.ge(torch.mul(obss.view(-1, 1),1-hits.view(
             -1,1)), bin_centers)
