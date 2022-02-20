@@ -1790,17 +1790,20 @@ class MLP_Wrapper:
             return preds, pmci, rids
 
     def test_surv_data_optimal_epoch(self, external_data=False):
-        key = ['ADNI' if not external_data else 'NACC']
+        key = ['ADNI' if not external_data else 'NACC'][0]
+        print(key)
         preds, pmci, rids = self.retrieve_testing_data(external_data)                             
         f = open(self.checkpoint_dir + 'raw_score_{}_{}.txt'.format(key, self.exp_idx), 'w')
         write_raw_score(f, preds, pmci)
         f.close()
         report = classification_report(
             y_true=pmci,
-            y_pred=preds, labels=[0,1],
-            target_names= key,
+            y_pred=preds,
+            target_names= [key + '_0', key + '_1'],
+            labels=[0,1],
             zero_division=0, output_dict=False)
-        print(report)
+        with open(f'{key}_test_data','a') as fi:
+            fi.write(report)
 
 
 def _test():
@@ -1821,6 +1824,7 @@ def _test():
     for mlp in mlp_list:
         mlp.train(1000)
         mlp.test_surv_data_optimal_epoch(external_data=True)
+        mlp.test_surv_data_optimal_epoch(external_data=False)
 
 if __name__ == "__main__":
     _test()

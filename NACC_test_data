@@ -1,0 +1,80 @@
+              precision    recall  f1-score   support
+
+      NACC_0       0.64      0.75      0.69       101
+      NACC_1       0.68      0.55      0.60        95
+
+    accuracy                           0.65       196
+   macro avg       0.66      0.65      0.65       196
+weighted avg       0.66      0.65      0.65       196
+              precision    recall  f1-score   support
+
+      NACC_0       0.61      0.88      0.72       101
+      NACC_1       0.76      0.39      0.51        95
+
+    accuracy                           0.64       196
+   macro avg       0.68      0.64      0.62       196
+weighted avg       0.68      0.64      0.62       196
+              precision    recall  f1-score   support
+
+      NACC_0       0.64      0.85      0.73       101
+      NACC_1       0.75      0.48      0.59        95
+
+    accuracy                           0.67       196
+   macro avg       0.70      0.67      0.66       196
+weighted avg       0.69      0.67      0.66       196
+              precision    recall  f1-score   support
+
+      NACC_0       0.63      0.83      0.71       101
+      NACC_1       0.73      0.47      0.57        95
+
+    accuracy                           0.66       196
+   macro avg       0.68      0.65      0.64       196
+weighted avg       0.67      0.66      0.65       196
+              precision    recall  f1-score   support
+
+      NACC_0       0.67      0.85      0.75       101
+      NACC_1       0.78      0.56      0.65        95
+
+    accuracy                           0.71       196
+   macro avg       0.73      0.70      0.70       196
+weighted avg       0.72      0.71      0.70       196
+              precision    recall  f1-score   support
+
+      NACC_0       0.64      0.75      0.69       101
+      NACC_1       0.68      0.55      0.60        95
+
+    accuracy                           0.65       196
+   macro avg       0.66      0.65      0.65       196
+weighted avg       0.66      0.65      0.65       196
+              precision    recall  f1-score   support
+
+      NACC_0       0.61      0.88      0.72       101
+      NACC_1       0.76      0.39      0.51        95
+
+    accuracy                           0.64       196
+   macro avg       0.68      0.64      0.62       196
+weighted avg       0.68      0.64      0.62       196
+              precision    recall  f1-score   support
+
+      NACC_0       0.64      0.85      0.73       101
+      NACC_1       0.75      0.48      0.59        95
+
+    accuracy                           0.67       196
+   macro avg       0.70      0.67      0.66       196
+weighted avg       0.69      0.67      0.66       196
+              precision    recall  f1-score   support
+
+      NACC_0       0.63      0.83      0.71       101
+      NACC_1       0.73      0.47      0.57        95
+
+    accuracy                           0.66       196
+   macro avg       0.68      0.65      0.64       196
+weighted avg       0.67      0.66      0.65       196
+              precision    recall  f1-score   support
+
+      NACC_0       0.67      0.85      0.75       101
+      NACC_1       0.78      0.56      0.65        95
+
+    accuracy                           0.71       196
+   macro avg       0.73      0.70      0.70       196
+weighted avg       0.72      0.71      0.70       196
