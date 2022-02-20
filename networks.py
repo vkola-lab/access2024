@@ -1785,7 +1785,7 @@ class MLP_Wrapper:
             self.model.eval()
             for data, pmci, rids in dataloader:
                 preds = self.model(data.to(self.device).float()).to('cpu')
-                preds = torch.round(preds)
+                preds = torch.round(preds).squeeze()
                 rids = rids
             return preds, pmci, rids
 
