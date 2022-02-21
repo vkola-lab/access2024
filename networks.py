@@ -11,8 +11,10 @@ import wandb
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import pandas as pd
 import nibabel as nib
 import matplotlib.pyplot as plt
+import tabulate
 
 from torch.utils.data import DataLoader
 from sklearn.metrics import classification_report
@@ -1775,39 +1777,60 @@ class MLP_Wrapper:
                 loss = self.criterion(preds.squeeze(),pmci.to(self.device).float().squeeze())
         return loss
         
-    def retrieve_testing_data(self, external_data):
+    def retrieve_testing_data(self, external_data, fold='all'):
         if external_data:
             dataloader = self.nacc_dataloader
         else:
-            dataloader = self.test_dataloader
+            if fold == 'all':
+                dataloader = self.all_dataloader
+            elif fold == 'valid':
+                dataloader = self.valid_dataloader
+            elif fold == 'test':
+                dataloader = self.test_dataloader
+            elif fold == 'train':
+                dataloader = self.train_dataloader
         with torch.no_grad():
             self.load()
             self.model.eval()
             for data, pmci, rids in dataloader:
                 preds = self.model(data.to(self.device).float()).to('cpu')
-                preds = torch.round(preds).squeeze()
                 rids = rids
             return preds, pmci, rids
 
-    def test_surv_data_optimal_epoch(self, external_data=False):
+    def test_surv_data_optimal_epoch(self, external_data=False, fold='all'):
         key = ['ADNI' if not external_data else 'NACC'][0]
-        print(key)
-        preds, pmci, rids = self.retrieve_testing_data(external_data)                             
-        f = open(self.checkpoint_dir + 'raw_score_{}_{}.txt'.format(key, self.exp_idx), 'w')
+        preds, pmci, _ = self.retrieve_testing_data(external_data, fold)
+        f = open(self.checkpoint_dir + 'raw_score_{}_{}_{}.txt'.format(key, self.exp_idx, fold), 'w')
         write_raw_score(f, preds, pmci)
         f.close()
+        preds = torch.round(preds).squeeze()
         report = classification_report(
             y_true=pmci,
             y_pred=preds,
-            target_names= [key + '_0', key + '_1'],
+            target_names= [key + fold + '_0', key + fold + '_1'],
             labels=[0,1],
-            zero_division=0, output_dict=False)
-        with open(f'{key}_test_data','a') as fi:
-            fi.write(report)
+            zero_division=0, output_dict=True)
+        return report
 
+def tabulate_report(report, dataset):
+    report = report[dataset]
+    label1 = f'{dataset}_1'
+    label0 = f'{dataset}_0'
+    value_list = {label0: [], label1: [], 'accuracy': [], 'weighted avg': [], 'macro avg': []}
+    for label in value_list:
+        for idx in report:
+            value_list[label].append(pd.Series(idx[label]))
+        value_list[label] = pd.concat(value_list[label], axis=1).T.describe()
+        value_list[label] = value_list[label].loc[['mean','std'],:].copy()
+    with open(f'checkpoint_dir/results_bce_{dataset}.txt','w') as fi:
+        for label in value_list:
+            fi.write('\n\n' +label + '\n')
+            fi.write(tabulate.tabulate(value_list[label], headers=value_list[label].columns, showindex="always"))
+    return value_list
 
-def _test():
+def run(load=True):
     mlp_list = []
+    mlp_output = {'NACCall': [], 'ADNItrain': [], 'ADNIvalid': [], 'ADNItest': []}
     for exp in range(5):
         mlp = MLP_Wrapper(
             exp_idx=exp,
@@ -1822,9 +1845,18 @@ def _test():
         )
         mlp_list.append(mlp)
     for mlp in mlp_list:
-        mlp.train(1000)
-        mlp.test_surv_data_optimal_epoch(external_data=True)
-        mlp.test_surv_data_optimal_epoch(external_data=False)
+        if load:
+            mlp.load()
+        else:
+            mlp.train(1000)
+        mlp_output['NACCall'].append(mlp.test_surv_data_optimal_epoch(external_data=True))
+        mlp_output['ADNItrain'].append(mlp.test_surv_data_optimal_epoch(external_data=False, fold='train'))
+        mlp_output['ADNIvalid'].append(mlp.test_surv_data_optimal_epoch(external_data=False, fold='valid'))
+        mlp_output['ADNItest'].append(mlp.test_surv_data_optimal_epoch(external_data=False, fold='test'))
+    return mlp_output
 
 if __name__ == "__main__":
-    _test()
+    g = run()
+    for fold in ['train','valid','test']:
+        tabulate_report(g,'ADNI' + fold)
+    tabulate_report(g,'NACCall')
