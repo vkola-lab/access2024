@@ -325,9 +325,9 @@ class ParcellationDataBinary(Dataset):
         self.rids = np.array(self.rids)[valid_datapoints]
         self.hit = np.array(self.hit)[valid_datapoints]
         self.time_obs = np.array(self.time_obs)[valid_datapoints]
+        self.parcellation_file = self.parcellation_file.loc[valid_datapoints,:]
         self.PMCI = np.array([t <= n_months and y == 1 for t,y in zip(self.time_obs, self.hit)])
         self.PMCI = np.where(self.PMCI,1,0)
-        self.parcellation_file = self.parcellation_file.loc[valid_datapoints,:]
 
     def _prep_data(self, feature_df):
         idxs = list(range(len(self.rids)))

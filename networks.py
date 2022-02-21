@@ -1716,10 +1716,14 @@ class MLP_Wrapper:
         self.nacc_dataloader = DataLoader(self.nacc_data, batch_size=len(self.nacc_data))
 
     def load(self):
-        file = glob.glob(self.checkpoint_dir + self.model_name + '*')
-        print(file)
-        assert(len(file)) == 1
-        self.model.load_state_dict(torch.load(file[0]))
+        for _, _, Files in os.walk(self.checkpoint_dir):
+                for File in Files:
+                    if File.endswith('.pth'):
+                        try:
+                            state = torch.load(self.checkpoint_dir + File)
+                        except:
+                            raise FileNotFoundError(self.checkpoint_dir + File)
+        self.model.load_state_dict(state)
 
     def save_checkpoint(self, loss):
         score = loss
@@ -1739,7 +1743,6 @@ class MLP_Wrapper:
                        )
 
     def train(self, epochs):
-        self.val_loss = []
         self.train_loss = []
         self.optimal_valid_matrix = None
         self.optimal_valid_metric = np.inf
@@ -1750,7 +1753,6 @@ class MLP_Wrapper:
                 self.train_model_epoch(self.optimizer)
                 val_loss = self.valid_model_epoch()
                 self.save_checkpoint(val_loss)
-                self.val_loss.append(val_loss)
                 if self.epoch % 300 == 0:
                     print('{}: {}th epoch validation score: {}'.format(
                             self.model_name, self.epoch, val_loss))
@@ -1855,8 +1857,11 @@ def run(load=True):
         mlp_output['ADNItest'].append(mlp.test_surv_data_optimal_epoch(external_data=False, fold='test'))
     return mlp_output
 
-if __name__ == "__main__":
+def run_and_tabulate():
     g = run()
     for fold in ['train','valid','test']:
         tabulate_report(g,'ADNI' + fold)
     tabulate_report(g,'NACCall')
+
+if __name__ == "__main__":
+    run_and_tabulate()
