@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import tabulate
 
 from torch.utils.data import DataLoader
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score
 from sksurv.metrics import integrated_brier_score, concordance_index_censored
 from scipy import interpolate
 
@@ -1079,7 +1079,7 @@ class CNN_Wrapper:
         self.checkpoint_dir = './checkpoint_dir/'
         if not os.path.exists(self.checkpoint_dir):
             os.mkdir(self.checkpoint_dir)
-        self.checkpoint_dir += '{}/'.format(self.model_name)
+        self.checkpoint_dir += '{}/'.format(self.model_name+str(exp_idx))
         if not os.path.exists(self.checkpoint_dir):
             os.mkdir(self.checkpoint_dir)
         self.output_dir = self.checkpoint_dir+'output_dir/'
@@ -1129,7 +1129,6 @@ class CNN_Wrapper:
         self.ext_dataloader = DataLoader(self.external_data, batch_size=1)
 
     def load(self, dir, fixed=False):
-        print('loading pre-trained model...')
         dir = glob.glob(dir + '*.pth')
         st = torch.load(dir[0])
         # del st['l2.weight']
@@ -1148,12 +1147,12 @@ class CNN_Wrapper:
             self.optimizer = optim.SGD(ps, lr=self.lr, weight_decay=0.01)
         # for n, p in self.model.named_parameters():
             # print(n, p.requires_grad)
-        print('loaded.')
 
     def train(self, epochs, training_prints=3):
         print('training ... (seed={})'.format(self.seed))
         torch.use_deterministic_algorithms(True)
-        self.optimal_valid_metric = np.inf
+        self.optimal_valid_metric = -1
+        # self.optimal_valid_metric = np.inf
         self.optimal_epoch        = -1
 
         start = torch.cuda.Event(enable_timing=True)
@@ -1163,21 +1162,24 @@ class CNN_Wrapper:
         self.epoch = 0
 
         valid_losses, train_losses = [], []
+        valid_accus, train_accus = [], []
         for self.epoch in range(1, epochs+1):
-            train_loss = self.train_model_epoch()
+            train_loss, train_accu = self.train_model_epoch()
             rec = 0
-            if self.epoch % 10 == 0:
+            if self.epoch % 5 == 0:
                 rec = 1
-                val_loss = self.valid_model_epoch()
-                self.save_checkpoint(val_loss)
+                val_loss, val_accu = self.valid_model_epoch()
+                # self.save_checkpoint(val_loss)
+                self.save_checkpoint(val_accu)
             if self.epoch % (epochs//training_prints) == 0:
                 rec = 1
-                val_loss = self.valid_model_epoch()
-                self.save_checkpoint(val_loss)
+                val_loss, val_accu = self.valid_model_epoch()
+                # self.save_checkpoint(val_loss)
+                self.save_checkpoint(val_accu)
 
                 end.record()
                 torch.cuda.synchronize()
-                print('{}th epoch validation loss [{}] ='.format(self.epoch, self.config['loss_metric']), '%.3f' % (val_loss), '|| train loss =', '%.3f' % (train_loss), '|| time(s) =', start.elapsed_time(end)//1000)
+                print('{}th epoch validation loss [{}] ='.format(self.epoch, self.config['loss_metric']), '%.3f' % (val_loss),  '|| valid accu =', '%.3f' % (val_accu),'|| train loss =', '%.3f' % (train_loss), '|| train accu =', '%.3f' % (train_accu), '|| time(s) =', start.elapsed_time(end)//1000)
 
                 start = torch.cuda.Event(enable_timing=True)
                 end = torch.cuda.Event(enable_timing=True)
@@ -1185,14 +1187,16 @@ class CNN_Wrapper:
             if rec:
                 valid_losses += [val_loss]
                 train_losses += [train_loss]
+                valid_accus += [val_accu]
+                train_accus += [train_accu]
 
         print('Best model valid loss:', self.optimal_valid_metric.item(), self.optimal_epoch)
         # print('Best model saved at the {}th epoch:'.format(self.optimal_epoch), self.optimal_valid_metric.item())
         # print('Location: {}{}_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
-        self.plot_train(valid_losses, train_losses)
+        self.plot_train(valid_losses, train_losses, valid_accus, train_accus)
         return self.optimal_valid_metric
 
-    def plot_train(self, d_rs, d_gs):
+    def plot_train(self, d_rs, d_gs, d_rsa, d_gsa):
         plt.figure(figsize=(10,5))
         plt.title('Training Loss')
         plt.plot(d_rs, label='valid')
@@ -1203,12 +1207,25 @@ class CNN_Wrapper:
         # plt.show()
         plt.savefig(self.output_dir+'train_loss.png', dpi=150)
         plt.close()
+        
+        plt.figure(figsize=(10,5))
+        plt.title('Training Accuracy')
+        plt.plot(d_rsa, label='valid')
+        plt.plot(d_gsa, label='train')
+        plt.xlabel("epochs")
+        plt.ylabel("preds")
+        plt.legend()
+        # plt.show()
+        plt.savefig(self.output_dir+'train_accu.png', dpi=150)
+        plt.close()
 
     def train_model_epoch(self):
         self.cnn.train(True)
         train_loss = []
+        train_accu = []
 
         # torch.use_deterministic_algorithms(False)
+        # classifier does not need to generate, so ignore useless input
         for _, inputs, _, labels in self.train_dataloader:
             inputs, labels = inputs.to(device), labels.float().to(device)
             self.cnn.zero_grad()
@@ -1217,27 +1234,31 @@ class CNN_Wrapper:
             loss = self.criterion(preds, labels)
             loss.backward()
             train_loss += [preds.mean().item()]
+            train_accu += [accuracy_score(labels.detach().cpu().numpy(), preds.detach().cpu().numpy()>0.5)]
             self.optimizer.step()
             # clip = 1
             # nn.utils.clip_grad_norm_(self.model.parameters(), clip)
         # torch.use_deterministic_algorithms(True)
-        return np.mean(train_loss)/self.config['batch_size']
+        return np.mean(train_loss)/self.config['batch_size'], np.mean(train_accu)
 
     def valid_model_epoch(self):
         self.cnn.eval()
         with torch.no_grad():
             loss_all = []
+            valid_accu = []
             for _, inputs, _, labels in self.valid_dataloader:
                 # here only use 1 patch
                 inputs, labels = inputs.to(device), labels.float().to(device)
                 preds = self.cnn(inputs).view(-1)
                 loss = self.criterion(preds, labels)
+                valid_accu += [accuracy_score(labels.detach().cpu().numpy(), preds.detach().cpu().numpy()>0.5)]
                 loss_all += [loss.item()]
-        return np.mean(loss_all)
+        return np.mean(loss_all), np.mean(valid_accu)
 
     def save_checkpoint(self, loss):
         score = loss
-        if score <= self.optimal_valid_metric:
+        # if score <= self.optimal_valid_metric:
+        if score >= self.optimal_valid_metric:
             self.optimal_epoch = self.epoch
             self.optimal_valid_metric = score
 
@@ -1250,10 +1271,21 @@ class CNN_Wrapper:
                             pass
             torch.save(self.cnn.state_dict(), '{}{}_cnn_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
 
-    def test(self, out=False, key='test'):
+    def test(self, out=False, key='test', pure=False):
         # if out is True, return the report dictionary; else print report
         # only look at one item with specified key; i.e. test dataset
+        '''
+        train on train, and test on the rest 3.
+        need the dataloader
+        need to have a switch
+        need to record and report
+        '''
+        self.load(dir=self.checkpoint_dir)
         self.cnn.eval()
+        
+        if not pure:
+            dls = self.prepare_dataloader(config['batch_size'], self.data_dir)
+            return
         dls = [self.train_dataloader, self.valid_dataloader, self.test_dataloader, self.ext_dataloader]
         names = ['train dataset', 'valid dataset', 'test dataset', 'ext dataset']
         target_names = ['class ' + str(i) for i in range(2)]
@@ -1282,6 +1314,25 @@ class CNN_Wrapper:
                 report = classification_report(y_true=labels_all, y_pred=preds_all, labels=[0,1], target_names=target_names, zero_division=0, output_dict=False)
                 print(n)
                 print(report)
+        
+    def prepare_test(self, batch_size, data_dir):
+        data_dir = "/data1/RGAN_Data/RGAN_Standard/"
+        sets = ['T', 'Z', 'G', 'CG_1', 'CG_2']
+        self.dls = []
+        for s in sets:
+            dir_a = data_dir+s+'/'
+            dir_n = data_dir+s+'_E/'
+            B_a = B_Data(dir_a, stage='all', seed=self.seed, step_size=self.config['step_size'], Pre=self.config['pretrain'])
+            B_n = B_Data(dir_n, stage='all', seed=self.seed, step_size=self.config['step_size'], external=True)
+            self.dls += [DataLoader(B_a, batch_size=1)]
+        T = B_Data(data_dir+ext, stage='all', seed=self.seed, step_size=self.config['step_size'], Pre=self.config['pretrain'])
+        self.T = T
+        self.T_dataloader = DataLoader(all_data, batch_size=len(all_data))
+        
+        Data_dir_NACC = data_dir[:-1] + '_E/'
+        external_data = B_Data(Data_dir_NACC, stage='all', seed=self.seed, step_size=self.config['step_size'], external=True)
+        self.external_data = external_data
+        self.ext_dataloader = DataLoader(self.external_data, batch_size=1)    
 
 
 class AE_Wrapper:
