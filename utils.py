@@ -55,16 +55,22 @@ def read_csv_cox_ext(filename):
     with open(filename, 'r') as f:
         reader = csv.DictReader(f)
         fileIDs, status = [], []
+        ttt = 0
         for r in reader:
             temp = r['PROGRESSES']
             if len(temp) == 0:
                 continue
+            # 318 labels unavailable for smci/pmci
+            time = int(float(r['TIMES']))
+            if float(temp) == 0 and time <= 36:
+                ttt += 1
             else:
                 fileIDs += [str(r['RID'])]
-                time = int(float(r['TIMES']))
                 status += [int(time<=36)]
-    # print('smci', status.count(0))
-    # print('pmci', status.count(1))
+    # print(ttt)
+    # print('ext smci', status.count(0))
+    # not progressed time < 36
+    # print('ext pmci', status.count(1))
     # print('0:0+1', status.count(0)/len(status))
     return fileIDs, status
 
@@ -73,22 +79,27 @@ def read_csv_sp(filename):
     with open(filename, 'r') as f:
         reader = csv.DictReader(f)
         fileIDs, status = [], []
+        ttt = 0
         smci = 0
         pmci = 0
         for r in reader:
-            temp = r['TIMES']
+            temp = r['PROGRESSES']
             if len(temp) == 0:
                 continue
+            # 200 labels unavailable for smci/pmci
+            time = int(float(r['TIMES']))
+            if float(temp) == 0 and time <= 36:
+                ttt += 1
             else:
                 fileIDs += [str(int(float(r['RID'])))]
-                time = int(float(r['TIMES']))
                 # 0 for smci, 1 for pmci (progress within 36 months)
                 status += [int(time<=36)]
     fileIDs = ['0'*(4-len(f))+f for f in fileIDs]
+    # print(ttt)
     # print('smci', status.count(0))
     # print('pmci', status.count(1))
     return fileIDs, status
-    
+
 def read_csv_pre(filename):
     with open(filename, 'r') as f:
         reader = csv.DictReader(f)

@@ -18,8 +18,9 @@ def CNN(model_name, config, Wrapper, num_exps):
     reports = [[],[],[],[]]
     for exp_idx in range(num_exps):
         net = Wrapper(config, model_name, exp_idx)
-        net.load('./checkpoint_dir/CNN_Standard_Pre/', fixed=False)
-        net.train(epochs = config['train_epochs'], training_prints=2)
+        # print('loading model...')
+        # net.load('./checkpoint_dir/CNN_Standard_Pre/', fixed=False)
+        # net.train(epochs = config['train_epochs'], training_prints=2)
         reports[0].append(net.test(out=True,key='test'))
         reports[1].append(net.test(out=True,key='ext'))
         reports[2].append(net.test(out=True,key='train'))
@@ -65,8 +66,8 @@ def main():
         ress = CNN(model_name, config, CNN_Wrapper, num_exps)
         table.append(ress[0])
         table.append(ress[1])
-        table.append(ress[2])
-        table.append(ress[3])
+        # table.append(ress[2])
+        # table.append(ress[3])
         print('-'*100)
     print(tabulate(table, headers='firstrow'))
     print('-'*100)

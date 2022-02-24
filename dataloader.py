@@ -16,7 +16,7 @@ SCALE = 1 #rescale to 0~2.5
 
 class B_Data(Dataset):
     #Brain data
-    def __init__(self, data_dir, stage, ratio=(0.6, 0.2, 0.2), seed=1000, step_size=10, external=False, Pre=False):
+    def __init__(self, data_dir, stage, ratio=(0.8, 0.1, 0.1), seed=1000, step_size=10, external=False, Pre=False):
         random.seed(seed)
 
         self.stage = stage
@@ -56,6 +56,9 @@ class B_Data(Dataset):
 
         # print(len(tmp_f))
         l = len(self.data_list)
+        # print(l)
+        # print('pmci', self.time_hit.count(1))
+        # sys.exit()
         split1 = int(l*ratio[0])
         split2 = int(l*(ratio[0]+ratio[1]))
         idxs = list(range(l))
@@ -95,10 +98,10 @@ class B_Data(Dataset):
         data = np.expand_dims(data, axis=0)
 
         g_data = data[:,::self.step_size]
-        print('dataloader', data.shape)
-        print('dataloader', g_data.shape)
+        # print('dataloader', data.shape)
+        # print('dataloader', g_data.shape)
 
-        sys.exit()
+        # sys.exit()
         return g_data, data, self.data_list[idx], hit
 
 
@@ -114,7 +117,7 @@ class B_Data(Dataset):
 
 class B_IQ_Data(Dataset):
     #Brain data
-    def __init__(self, data_dir, stage, ratio=(0.6, 0.2, 0.2), seed=1000, step_size=10, external=False):
+    def __init__(self, data_dir, stage, ratio=(0.8, 0.1, 0.1), seed=1000, step_size=10, external=False):
         random.seed(seed)
 
         self.stage = stage
