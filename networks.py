@@ -1802,9 +1802,6 @@ class MLP_Wrapper:
     def test_surv_data_optimal_epoch(self, external_data=False, fold='all'):
         key = ['ADNI' if not external_data else 'NACC'][0]
         preds, pmci, _ = self.retrieve_testing_data(external_data, fold)
-        f = open(self.checkpoint_dir + 'raw_score_{}_{}_{}.txt'.format(key, self.exp_idx, fold), 'w')
-        write_raw_score(f, preds, pmci)
-        f.close()
         preds = torch.round(preds).squeeze()
         report = classification_report(
             y_true=pmci,
@@ -1857,11 +1854,11 @@ def run(load=True):
         mlp_output['ADNItest'].append(mlp.test_surv_data_optimal_epoch(external_data=False, fold='test'))
     return mlp_output
 
-def run_and_tabulate():
-    g = run()
+def run_and_tabulate(force):
+    g = run(force)
     for fold in ['train','valid','test']:
         tabulate_report(g,'ADNI' + fold)
     tabulate_report(g,'NACCall')
 
 if __name__ == "__main__":
-    run_and_tabulate()
+    run_and_tabulate(False)
