@@ -1,0 +1,28 @@
+{
+  "datadir": "./csvs/",
+  "metadata_fi": {
+    "ADNI": "merged_dataframe_cox_noqc_pruned_final.csv",
+    "NACC": "merged_dataframe_cox_test_pruned_final.csv"
+  },
+  "parcellation_fi": "mri3_cat12_vol_avg_combined_cox.csv",
+  "parcellation_fi_adni": "mri3_cat12_vol_avg_cox_noqc.csv",
+  "parcellation_fi_nacc": "mri3_cat12_vol_avg_cox_test.csv",
+  "ventricles": [
+    "CSF",
+    "3thVen",
+    "4thVen",
+    "InfLatVen",
+    "LatVen"
+  ],
+  "mlp_parcellation_sur_loss": {
+    "fil_num": 100,
+    "drop_rate": 0.5,
+    "bins": [],
+    "learning_rate": 0.01,
+    "weight_decay": 0,
+    "train_epochs": 5000,
+    "criterion": "sur_loss",
+    "dataset": "ParcellationData",
+    "model": "_MLP_Surv"
+}
+}
