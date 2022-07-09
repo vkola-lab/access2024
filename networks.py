@@ -1,5 +1,6 @@
 # network wrappers for 3D-RGAN
-# Updated: 12/25/2021
+# Created: 2021
+# Updated: 3/21/2022
 # Status: OK
 
 import torch
@@ -258,21 +259,25 @@ class RGAN_Wrapper:
             torch.save(self.d.state_dict(), '{}{}_d_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
             torch.save(self.g.state_dict(), '{}{}_g_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
 
+    def clear(self, ext):
+        out_dir = self.config['out_dir']
+        if not os.path.exists(out_dir):
+            os.mkdir(out_dir)
+        out_dirs = [out_dir + 'Z/', out_dir + 'G/', out_dir + 'T/']
+        if ext:
+            out_dirs += [out_dir + 'Z_E/', out_dir + 'G_E/', out_dir + 'T_E/']
+        for o in out_dirs:
+            if os.path.isdir(o):
+                shutil.rmtree(o)
+            if not os.path.exists(o):
+                os.mkdir(o)
+        return out_dirs
+
     def generate(self, datas, whole=False, samples=True, ext=False):
         self.g.eval()
         if whole:
             #prepare locations for data generation!
-            out_dir = self.config['out_dir']
-            if not os.path.exists(out_dir):
-                os.mkdir(out_dir)
-            out_dirs = [out_dir + 'Z/', out_dir + 'G/', out_dir + 'T/']
-            if ext:
-                out_dirs += [out_dir + 'Z_E/', out_dir + 'G_E/', out_dir + 'T_E/']
-            for o in out_dirs:
-                if os.path.isdir(o):
-                    shutil.rmtree(o)
-                if not os.path.exists(o):
-                    os.mkdir(o)
+            out_dirs = self.clear(ext)
 
         with torch.no_grad():
             for idx, data in enumerate(datas):
@@ -284,8 +289,34 @@ class RGAN_Wrapper:
                     targets = targets.cpu().numpy().squeeze()
 
                     inputs = inputs.cpu().numpy().squeeze()
-                    out = np.zeros(targets.shape)
-                    out[::self.config['step_size']] = inputs
+                    out = inputs
+                    
+                    # print(fname)
+                    # print(inputs.shape)
+                    # print(out.shape)
+                    # plt.set_cmap("gray")
+                    # plt.subplots_adjust(wspace=0.3, hspace=0.3)
+                    # fig, axs = plt.subplots(3, 9, figsize=(20, 15))
+                    # input = inputs
+                    # target = targets
+                    # fname = os.path.basename(fname[0]).replace('nii', 'png')
+                    # step = np.array(input.shape)//3
+                    # offset = step//2
+                    # for i in range(3):
+                        # axs[i, 0].imshow(input[i*step[0]-offset[0], :, :], vmin=-1, vmax=1)
+                        # axs[i, 0].set_title('Z: x_{}'.format(i), fontsize=25)
+                        # axs[i, 0].axis('off')
+
+                        # axs[i, 3].imshow(input[:, i*step[1]-offset[1], :], vmin=-1, vmax=1)
+                        # axs[i, 3].set_title('Z: y_{}'.format(i), fontsize=25)
+                        # axs[i, 3].axis('off')
+
+                        # axs[i, 6].imshow(input[:, :, i*step[2]-offset[2]], vmin=-1, vmax=1)
+                        # axs[i, 6].set_title('Z: z_{}'.format(i), fontsize=25)
+                        # axs[i, 6].axis('off')
+                    # plt.savefig(fname, dpi=150)
+                    # plt.close()
+                    # sys.exit()
 
                     if samples:
                         dir_name = self.output_dir+str(self.epoch)+'_'
@@ -654,8 +685,7 @@ class RCGAN_Wrapper:
                     targets = targets.cpu().numpy().squeeze()
 
                     inputs = inputs.cpu().numpy().squeeze()
-                    out = np.zeros(targets.shape)
-                    out[::self.config['step_size']] = inputs
+                    out = inputs
 
                     if samples:
                         dir_name = self.output_dir+str(self.epoch)+'_'
@@ -1000,8 +1030,7 @@ class RCGANs_Wrapper:
                     targets = targets.cpu().numpy().squeeze()
 
                     inputs = inputs.cpu().numpy().squeeze()
-                    out = np.zeros(targets.shape)
-                    out[::self.config['step_size']] = inputs
+                    out = inputs
 
                     dir_name = self.output_dir#+str(self.epoch)+'_'
                     dir_name += fname
@@ -1145,8 +1174,6 @@ class CNN_Wrapper:
                     pass
                     p.requires_grad = False
             self.optimizer = optim.SGD(ps, lr=self.lr, weight_decay=0.01)
-        # for n, p in self.model.named_parameters():
-            # print(n, p.requires_grad)
 
     def train(self, epochs, training_prints=3):
         print('training ... (seed={})'.format(self.seed))
@@ -1219,6 +1246,37 @@ class CNN_Wrapper:
         plt.savefig(self.output_dir+'train_accu.png', dpi=150)
         plt.close()
 
+    def visualize(self, dir='./samples/', prefix=''):
+        data = self.test_dataloader
+        data = self.ext_dataloader
+        
+        plt.set_cmap("gray")
+        plt.subplots_adjust(wspace=0.3, hspace=0.3)
+        fig, axs = plt.subplots(3, 9, figsize=(20, 15))
+
+        for inputs, targets, fname, _ in data:
+            input = inputs[0][0]
+            input = targets[0][0]
+            fname = os.path.basename(fname[0]).replace('nii', 'png')
+            step = np.array(input.shape)//3
+            offset = step//2
+            for i in range(3):
+                axs[i, 0].imshow(input[i*step[0]-offset[0], :, :], vmin=-1, vmax=1)
+                axs[i, 0].set_title('Z: x_{}'.format(i), fontsize=25)
+                axs[i, 0].axis('off')
+
+                axs[i, 3].imshow(input[:, i*step[1]-offset[1], :], vmin=-1, vmax=1)
+                axs[i, 3].set_title('Z: y_{}'.format(i), fontsize=25)
+                axs[i, 3].axis('off')
+
+                axs[i, 6].imshow(input[:, :, i*step[2]-offset[2]], vmin=-1, vmax=1)
+                axs[i, 6].set_title('Z: z_{}'.format(i), fontsize=25)
+                axs[i, 6].axis('off')
+            print('saved in', dir)
+            plt.savefig(dir+prefix+fname, dpi=150)
+            plt.close()
+            return
+        
     def train_model_epoch(self):
         self.cnn.train(True)
         train_loss = []
@@ -1271,7 +1329,56 @@ class CNN_Wrapper:
                             pass
             torch.save(self.cnn.state_dict(), '{}{}_cnn_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
 
-    def test(self, out=False, key='test', pure=False):
+    def test(self, out=False, root='/data1/RGAN_Data/'):
+        # Note root is the root folder for data
+        # if out is True, return the report dictionary; else print report
+        # only look at one item with specified key; i.e. test dataset
+        '''
+        train on train, and test on the rest 3.
+        need the dataloader
+        need to record and report
+        '''
+        self.load(dir=self.checkpoint_dir)
+        self.cnn.eval()
+        target_names = ['class ' + str(i) for i in range(2)]
+        dirs = ['T/', 'Z/', 'G/', 'CG_1/', 'CG_2/']
+        dls = []
+        names = []
+        for d in dirs:
+            names += [d[:-1]+'_ADNI', d[:-1]+'_NACC']
+            data_dir = root + d
+            data = B_Data(data_dir, stage='all', seed=self.seed, step_size=self.config['step_size'])
+            dls += [DataLoader(data, batch_size=1)]
+            data_dir = data_dir[:-1] + '_E/'
+            data = B_Data(data_dir, stage='all', seed=self.seed, step_size=self.config['step_size'], external=True)
+            dls += [DataLoader(data, batch_size=1)]
+            
+        reports = []
+        for dl, n in zip(dls, names):
+            preds_raw = []
+            preds_all = []
+            labels_all = []
+            with torch.no_grad():
+                for _, inputs, _, labels in dl:
+                    # here only use 1 patch
+                    inputs, labels = inputs.to(device), labels.float().to(device)
+                    preds_raw += self.cnn(inputs).view(-1).cpu()
+                    preds_all += torch.round(self.cnn(inputs).view(-1)).cpu()
+                    labels_all += labels.cpu()
+            # f = open(self.checkpoint_dir + 'raw_score_{}_{}.txt'.format(key, self.exp_idx), 'w')
+            # write_raw_score(f, preds_raw, labels_all)
+            # f.close()
+
+            if out:
+                report = classification_report(y_true=labels_all, y_pred=preds_all, labels=[0,1], target_names=target_names, zero_division=0, output_dict=True)
+                reports += [report]
+            else:
+                report = classification_report(y_true=labels_all, y_pred=preds_all, labels=[0,1], target_names=target_names, zero_division=0, output_dict=False)
+                print(n)
+                print(report)
+        return reports, names
+        
+    def test_b(self, out=False, key='test', pure=False):
         # if out is True, return the report dictionary; else print report
         # only look at one item with specified key; i.e. test dataset
         '''
@@ -1283,9 +1390,6 @@ class CNN_Wrapper:
         self.load(dir=self.checkpoint_dir)
         self.cnn.eval()
         
-        if not pure:
-            dls = self.prepare_dataloader(config['batch_size'], self.data_dir)
-            return
         dls = [self.train_dataloader, self.valid_dataloader, self.test_dataloader, self.ext_dataloader]
         names = ['train dataset', 'valid dataset', 'test dataset', 'ext dataset']
         target_names = ['class ' + str(i) for i in range(2)]
@@ -1314,7 +1418,7 @@ class CNN_Wrapper:
                 report = classification_report(y_true=labels_all, y_pred=preds_all, labels=[0,1], target_names=target_names, zero_division=0, output_dict=False)
                 print(n)
                 print(report)
-        
+      
     def prepare_test(self, batch_size, data_dir):
         data_dir = "/data1/RGAN_Data/RGAN_Standard/"
         sets = ['T', 'Z', 'G', 'CG_1', 'CG_2']

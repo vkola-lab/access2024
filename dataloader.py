@@ -7,6 +7,7 @@ import glob
 import json
 import os, sys
 import torch
+import copy
 
 import numpy as np
 import nibabel as nib
@@ -101,14 +102,17 @@ class B_Data(Dataset):
                 data = data.astype(np.int)
         data = np.expand_dims(data, axis=0)
 
-        g_data = data[:,::self.step_size]
-        # print('dataloader', data.shape)
-        # print('dataloader', g_data.shape)
-
+        g_data = copy.deepcopy(data)
+        # randomly remove information
+        
+        # g_data[:,::self.step_size] = 0
+        indices = list(range(g_data.shape[1]))
+        random.shuffle(indices)
+        g_data[:, indices[:self.step_size]] = 0
+        # print('g', g_data[:, :, 80, 80])
         # sys.exit()
+
         return g_data, data, self.data_list[idx], hit
-
-
         # return data, obs, hit
 
     def get_sample_weights(self):

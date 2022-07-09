@@ -67,7 +67,7 @@ def roc_plot_perfrom_table(txt_file=None, mode=['T', 'Z', 'G', 'CG_1', 'CG_2']):
     lines = ['-', '--', '-.', ':', ' ']
     hdl_crv = {m:{} for m in mode}
     for i, ds in enumerate(datas):
-        title = ds
+        title = ds.replace('ext', 'NACC')
         i += 1
         for j, m in enumerate(mode):
             hdl_crv[m][ds] = plot_curve(curve='roc', **roc_info[m][ds], ax=axes[ds],
@@ -82,7 +82,7 @@ def roc_plot_perfrom_table(txt_file=None, mode=['T', 'Z', 'G', 'CG_1', 'CG_2']):
     axes = dict(zip(datas, axes_))
     hdl_crv = {m: {} for m in mode}
     for i, ds in enumerate(datas):
-        title = ds
+        title = ds.replace('ext', 'NACC')
         i += 1
         for j, m in enumerate(mode):
             hdl_crv[m][ds] = plot_curve(curve='pr', **pr_info[m][ds], ax=axes[ds],
