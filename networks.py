@@ -30,7 +30,7 @@ from loss_functions import sur_loss
 torch.set_num_threads(1) # may lower training speed (and potentially overheat issue) if machine has many cpus!
 device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
-class RGAN_Wrapper:
+class GAN_Wrapper:
     def __init__(self, config, model_name, SWEEP=False):
         self.SWEEP = SWEEP
         self.config = config
@@ -100,6 +100,7 @@ class RGAN_Wrapper:
         else:
             print('loading model...')
             dir = [glob.glob(self.checkpoint_dir + '*_d_*.pth')[0], glob.glob(self.checkpoint_dir + '*_g_*.pth')[0]]
+        self.epoch = dir[0].split('_')[-1].split('.')[0]
         st_d = torch.load(dir[0])
         st_g = torch.load(dir[1])
         # del st['l2.weight']
@@ -121,7 +122,7 @@ class RGAN_Wrapper:
             # print(n, p.requires_grad)
         print('loaded.')
 
-    def train(self, epochs):
+    def train(self, epochs, verbose=1):
         print('training...')
         self.optimal_valid_metric = np.inf
         self.optimal_epoch        = -1
@@ -139,13 +140,13 @@ class RGAN_Wrapper:
             d_loss, g_loss, d_g, d_g2, d_r = train_loss
             d_gs += [d_g]
             d_rs += [d_r]
-            if self.epoch % 10 == 0:
+            if self.epoch % verbose == 0:
                 val_loss = self.valid_model_epoch()
                 self.save_checkpoint(val_loss)
-            if self.epoch % (epochs//10) == 0:
-                self.generate([self.valid_dataloader])
-                val_loss = self.valid_model_epoch()
-                self.save_checkpoint(val_loss)
+            # if self.epoch % (epochs//10) == 0:
+            #     self.generate([self.valid_dataloader])
+            #     val_loss = self.valid_model_epoch()
+            #     self.save_checkpoint(val_loss)
 
                 end.record()
                 torch.cuda.synchronize()
@@ -181,10 +182,10 @@ class RGAN_Wrapper:
     def train_model_epoch(self):
         self.g.train(True)
         self.d.train(True)
-        d_loss, g_loss = [], []
+        d_losses, g_loss = [], []
         d_g, d_g2, d_r = [], [], []
 
-        torch.use_deterministic_algorithms(False)
+        # torch.use_deterministic_algorithms(False)
         for inputs, targets, _, _ in self.train_dataloader:
             inputs, targets = inputs.to(device), targets.to(device)
             self.g.zero_grad()
@@ -205,7 +206,7 @@ class RGAN_Wrapper:
             loss_g.backward()
             d_g += [g_preds.mean().item()]
             loss_d = loss_g+loss_r
-            d_loss += [loss_d.item()]
+            d_losses += [loss_d.item()]
             if self.epoch % 5 == 0:
                 self.optimizer_d.step()
 
@@ -213,8 +214,9 @@ class RGAN_Wrapper:
             g_out = self.g(inputs)
             preds = self.d(g_out).view(-1)#want to update g here
             labels = torch.full((preds.shape[0],), 1, dtype=torch.float, device=device) #target for g should be 1
+            d_loss = self.criterion(preds, labels)
             p_loss = torch.mean(torch.abs(g_out-targets))
-            loss = self.criterion(preds, labels)+self.config['p_weight']*p_loss
+            loss = self.config['d_weight']*d_loss + self.config['p_weight']*p_loss
             loss.backward()
             g_loss += [loss.item()]
             d_g2 += [preds.mean().item()]
@@ -224,9 +226,9 @@ class RGAN_Wrapper:
             # sys.exit()
             # clip = 1
             # nn.utils.clip_grad_norm_(self.model.parameters(), clip)
-        torch.use_deterministic_algorithms(True)
+        # torch.use_deterministic_algorithms(True)
         # print((d_loss), (g_loss), (d_g), (d_g2))
-        return np.mean(d_loss), np.mean(g_loss), np.mean(d_g), np.mean(d_g2), np.mean(d_r)
+        return np.mean(d_losses), np.mean(g_loss), np.mean(d_g), np.mean(d_g2), np.mean(d_r)
 
     def valid_model_epoch(self):
         self.g.eval()
@@ -236,12 +238,17 @@ class RGAN_Wrapper:
             for inputs, targets, _, _ in self.valid_dataloader:
                 # here only use 1 patch
                 inputs, targets = inputs.to(device), targets.to(device)
+
                 g_out = self.g(inputs)
-                g_preds = self.d(g_out).view(-1)
-                g_labels = torch.full((g_preds.shape[0],), 1, dtype=torch.float, device=device)
-                loss_g = self.criterion(g_preds, g_labels)
-                loss_all += [loss_g.item()]
-        return np.mean(loss_all)*5
+                preds_d = self.d(g_out).view(-1)
+                labels_d = torch.full((preds_d.shape[0],), 1, dtype=torch.float, device=device) #target for g should be 1
+                d_loss = self.criterion(preds_d, labels_d)
+
+                p_loss = torch.mean(torch.abs(g_out-targets))
+                loss = self.config['d_weight']*d_loss + self.config['p_weight']*p_loss
+
+                loss_all += [loss.item()]
+        return np.mean(loss_all)
 
     def save_checkpoint(self, loss):
         score = loss
@@ -291,33 +298,6 @@ class RGAN_Wrapper:
                     inputs = inputs.cpu().numpy().squeeze()
                     out = inputs
                     
-                    # print(fname)
-                    # print(inputs.shape)
-                    # print(out.shape)
-                    # plt.set_cmap("gray")
-                    # plt.subplots_adjust(wspace=0.3, hspace=0.3)
-                    # fig, axs = plt.subplots(3, 9, figsize=(20, 15))
-                    # input = inputs
-                    # target = targets
-                    # fname = os.path.basename(fname[0]).replace('nii', 'png')
-                    # step = np.array(input.shape)//3
-                    # offset = step//2
-                    # for i in range(3):
-                        # axs[i, 0].imshow(input[i*step[0]-offset[0], :, :], vmin=-1, vmax=1)
-                        # axs[i, 0].set_title('Z: x_{}'.format(i), fontsize=25)
-                        # axs[i, 0].axis('off')
-
-                        # axs[i, 3].imshow(input[:, i*step[1]-offset[1], :], vmin=-1, vmax=1)
-                        # axs[i, 3].set_title('Z: y_{}'.format(i), fontsize=25)
-                        # axs[i, 3].axis('off')
-
-                        # axs[i, 6].imshow(input[:, :, i*step[2]-offset[2]], vmin=-1, vmax=1)
-                        # axs[i, 6].set_title('Z: z_{}'.format(i), fontsize=25)
-                        # axs[i, 6].axis('off')
-                    # plt.savefig(fname, dpi=150)
-                    # plt.close()
-                    # sys.exit()
-
                     if samples:
                         dir_name = self.output_dir+str(self.epoch)+'_'
                         dir_name += fname
@@ -402,69 +382,20 @@ class RGAN_Wrapper:
         '''
 
 
-class RCGAN_Wrapper:
+class RGAN_Wrapper(GAN_Wrapper):
+    pass
+
+
+class RCGAN_Wrapper(GAN_Wrapper):
     def __init__(self, config, model_name, SWEEP=False):
-        self.SWEEP = SWEEP
-        self.config = config
-        self.data_dir = config['data_dir']
-        self.lr_d = config['lr_d']
-        self.lr_g = config['lr_g']
-        self.seed = 1000
-        self.model_name = model_name
-        self.loss_metric = config['loss_metric']
-        self.checkpoint_dir = './checkpoint_dir/'
-        if not os.path.exists(self.checkpoint_dir):
-            os.mkdir(self.checkpoint_dir)
-        self.checkpoint_dir += '{}/'.format(self.model_name)
-        if not os.path.exists(self.checkpoint_dir):
-            os.mkdir(self.checkpoint_dir)
-        self.output_dir = self.checkpoint_dir+'output_dir/'
-        if os.path.isdir(self.output_dir):
-            shutil.rmtree(self.output_dir)
-        if not os.path.exists(self.output_dir):
-            os.mkdir(self.output_dir)
+        super().__init__(config, model_name, SWEEP)
 
-        torch.manual_seed(self.seed)
-        self.prepare_dataloader(config['batch_size'], self.data_dir)
-
-        # in_size = 121*145*121
-        self.g = _G_Model(config).to(device)
-        self.d = _D_Model(config).to(device)
         self.c = _CNN(config).to(device)
 
-        if self.loss_metric == 'Standard':
-            self.criterion = nn.BCELoss().to(device)
-        else:
-            # self.criterion = nn.CrossEntropyLoss().to(device)
-            self.criterion = nn.MSELoss().to(device)
-
         if config['optimizer'] == 'SGD':
-            self.optimizer_g = optim.SGD(self.g.parameters(), lr=config['lr_g'], weight_decay=config['weight_decay_g'])
-            self.optimizer_d = optim.SGD(self.d.parameters(), lr=config['lr_d'], weight_decay=config['weight_decay_d'])
             self.optimizer_c = optim.SGD(self.c.parameters(), lr=config['lr_c'], weight_decay=config['weight_decay_c'])
         elif config['optimizer'] == 'Adam':
-            self.optimizer_g = optim.Adam(self.g.parameters(), lr=config['lr_g'], weight_decay=config['weight_decay_g'])
-            self.optimizer_d = optim.Adam(self.d.parameters(), lr=config['lr_d'], weight_decay=config['weight_decay_d'])
             self.optimizer_c = optim.Adam(self.c.parameters(), lr=config['lr_c'], weight_decay=config['weight_decay_c'])
-
-    def prepare_dataloader(self, batch_size, data_dir):
-        self.train_data = B_Data(data_dir, stage='train', seed=self.seed, step_size=self.config['step_size'])
-        sample_weight, self.imbalanced_ratio = self.train_data.get_sample_weights()
-        self.train_dataloader = DataLoader(self.train_data, batch_size=batch_size, shuffle=False, drop_last=True)
-
-        valid_data = B_Data(data_dir, stage='valid', seed=self.seed, step_size=self.config['step_size'])
-        self.valid_dataloader = DataLoader(valid_data, batch_size=1, shuffle=False)
-
-        self.test_data  = B_Data(data_dir, stage='test', seed=self.seed, step_size=self.config['step_size'])
-        self.test_dataloader = DataLoader(self.test_data, batch_size=1, shuffle=False)
-
-        self.all_data = B_Data(data_dir, stage='all', seed=self.seed, step_size=self.config['step_size'])
-        self.all_dataloader = DataLoader(self.all_data, batch_size=1)
-
-        Data_dir_NACC = "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
-        external_data = B_Data(Data_dir_NACC, stage='all', seed=self.seed, step_size=self.config['step_size'], external=True)
-        self.external_data = external_data
-        self.ext_dataloader = DataLoader(self.external_data, batch_size=1)
 
     def load(self, dir=None, fixed=False):
         if dir:
@@ -475,6 +406,7 @@ class RCGAN_Wrapper:
         else:
             print('loading model...')
             dir = [glob.glob(self.checkpoint_dir + '*_d_*.pth')[0], glob.glob(self.checkpoint_dir + '*_g_*.pth')[0], glob.glob(self.checkpoint_dir + '*_c_*.pth')[0]]
+        self.epoch = dir[0].split('_')[-1].split('.')[0]
         st_d = torch.load(dir[0])
         st_g = torch.load(dir[1])
         st_c = torch.load(dir[2])
@@ -498,7 +430,7 @@ class RCGAN_Wrapper:
             # print(n, p.requires_grad)
         print('loaded.')
 
-    def train(self, epochs):
+    def train(self, epochs, verbose=1):
         print('training...')
         self.optimal_valid_metric = np.inf
         self.optimal_epoch        = -1
@@ -516,17 +448,18 @@ class RCGAN_Wrapper:
             d_loss, g_loss, c_loss, d_g, d_g2, d_r = train_loss
             d_gs += [d_g]
             d_rs += [d_r]
-            if self.epoch % 10 == 0:
+            if self.epoch % verbose == 0:
                 val_loss = self.valid_model_epoch()
                 self.save_checkpoint(val_loss)
-            if self.epoch % (epochs//10) == 0:
-                self.generate([self.valid_dataloader])
-                val_loss = self.valid_model_epoch()
-                self.save_checkpoint(val_loss)
+            # if self.epoch % (epochs//10) == 0:
+                # self.generate([self.valid_dataloader])
+                # val_loss = self.valid_model_epoch()
+                # self.save_checkpoint(val_loss)
 
                 end.record()
                 torch.cuda.synchronize()
-                print('{}th epoch g_valid loss [{}] ='.format(self.epoch, self.config['loss_metric']), '%.3f' % (val_loss), 'Loss_C: %.3f Loss_D: %.3f Loss_G: %.3f D(x): %.3f D(G(z)): %.3f / %.3f' % (c_loss, d_loss, g_loss, d_r, d_g, d_g2), '|| time(s) =', int(start.elapsed_time(end)//1000)) #d_g - d_g2: before update vs after update for d
+                if not self.SWEEP:
+                    print('{}th epoch g_valid loss [{}] ='.format(self.epoch, self.config['loss_metric']), '%.3f' % (val_loss), 'Loss_C: %.3f Loss_D: %.3f Loss_G: %.3f D(x): %.3f D(G(z)): %.3f / %.3f' % (c_loss, d_loss, g_loss, d_r, d_g, d_g2), '|| time(s) =', int(start.elapsed_time(end)//1000)) #d_g - d_g2: before update vs after update for d
                 if self.SWEEP:
                     wandb.log({"g_valid_loss":val_loss})
                     wandb.log({"C_loss":c_loss})
@@ -540,21 +473,10 @@ class RCGAN_Wrapper:
                 start.record()
 
         print('Best model saved at the {}th epoch:'.format(self.optimal_epoch), self.optimal_valid_metric.item())
-        print('Location: {}{}_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
-        self.plot_train(d_rs, d_gs)
+        if not self.SWEEP:
+            print('Location: {}{}_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
+            self.plot_train(d_rs, d_gs)
         return self.optimal_valid_metric
-
-    def plot_train(self, d_rs, d_gs):
-        plt.figure(figsize=(10,5))
-        plt.title('Training Loss')
-        plt.plot(d_rs, label='R')
-        plt.plot(d_gs, label='G')
-        plt.xlabel("epochs")
-        plt.ylabel("preds")
-        plt.legend()
-        # plt.show()
-        plt.savefig(self.output_dir+'train_loss.png', dpi=150)
-        plt.close()
 
     def train_model_epoch(self):
         self.g.train(True)
@@ -563,7 +485,7 @@ class RCGAN_Wrapper:
         d_losses, g_losses, c_losses = [], [], []
         d_g, d_g2, d_r = [], [], []
 
-        torch.use_deterministic_algorithms(False)
+        # torch.use_deterministic_algorithms(False)
         for inputs, targets, _, labels in self.train_dataloader:
             inputs, targets, labels = inputs.to(device), targets.to(device), labels.to(device).float()
             self.g.zero_grad()
@@ -595,12 +517,12 @@ class RCGAN_Wrapper:
             c_loss = self.criterion(preds_c, labels)
             c_losses += [c_loss.item()]
 
+            g_out = self.g(inputs)
             preds_d = self.d(g_out).view(-1)#want to update g here
             labels_d = torch.full((preds_d.shape[0],), 1, dtype=torch.float, device=device) #target for g should be 1
             d_loss = self.criterion(preds_d, labels_d)
-
             p_loss = torch.mean(torch.abs(g_out-targets))
-
+            # loss = self.config['d_weight']*d_loss + self.config['p_weight']*p_loss
             loss = self.config['c_weight']*c_loss + self.config['d_weight']*d_loss + self.config['p_weight']*p_loss
             loss.backward()
             g_losses += [loss.item()]
@@ -612,7 +534,7 @@ class RCGAN_Wrapper:
             # sys.exit()
             # clip = 1
             # nn.utils.clip_grad_norm_(self.model.parameters(), clip)
-        torch.use_deterministic_algorithms(True)
+        # torch.use_deterministic_algorithms(True)
         # print((d_loss), (g_loss), (d_g), (d_g2))
         return np.mean(d_losses), np.mean(g_losses), np.mean(c_losses), np.mean(d_g), np.mean(d_g2), np.mean(d_r)
 
@@ -635,11 +557,12 @@ class RCGAN_Wrapper:
                 d_loss = self.criterion(preds_d, labels_d)
 
                 p_loss = torch.mean(torch.abs(g_out-targets))
-
+                # loss = self.config['d_weight']*d_loss + self.config['p_weight']*p_loss
                 loss = self.config['c_weight']*c_loss + self.config['d_weight']*d_loss + self.config['p_weight']*p_loss
+
                 loss_all += [loss.item()]
 
-        return np.mean(loss_all)*self.config['batch_size']
+        return np.mean(loss_all)
 
     def save_checkpoint(self, loss):
         score = loss
@@ -658,93 +581,19 @@ class RCGAN_Wrapper:
             torch.save(self.g.state_dict(), '{}{}_g_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
             torch.save(self.c.state_dict(), '{}{}_c_{}.pth'.format(self.checkpoint_dir, self.model_name, self.optimal_epoch))
 
-    def generate(self, datas, whole=False, samples=True, ext=False):
-        self.g.eval()
-
-        if whole:
-            #prepare locations for data generation!
-            out_dir = self.config['out_dir']
-            if not os.path.exists(out_dir):
-                os.mkdir(out_dir)
-            out_dirs = [out_dir + 'Z/', out_dir + 'CG_1/', out_dir + 'T/']
-            if ext:
-                out_dirs += [out_dir + 'Z_E/', out_dir + 'CG_1_E/', out_dir + 'T_E/']
-            for o in out_dirs:
-                if os.path.isdir(o):
-                    shutil.rmtree(o)
-                if not os.path.exists(o):
-                    os.mkdir(o)
-
-        with torch.no_grad():
-            for idx, data in enumerate(datas):
-                for inputs, targets, fname, _ in data:
-                    # here only use 1 patch
-                    inputs, targets = inputs.to(device), targets.to(device)
-                    fname = os.path.basename(fname[0])
-                    g_out = self.g(inputs).cpu().numpy().squeeze()
-                    targets = targets.cpu().numpy().squeeze()
-
-                    inputs = inputs.cpu().numpy().squeeze()
-                    out = inputs
-
-                    if samples:
-                        dir_name = self.output_dir+str(self.epoch)+'_'
-                        dir_name += fname
-                        self.visualize(out, g_out, targets, dir_name)
-                    if whole:
-                        # generate for all data
-                        img_z = nib.Nifti1Image(out, np.eye(4))
-                        img_z.to_filename(out_dirs[0+3*idx]+fname)
-
-                        img_g = nib.Nifti1Image(g_out, np.eye(4))
-                        img_g.to_filename(out_dirs[1+3*idx]+fname)
-
-                        img_t = nib.Nifti1Image(targets, np.eye(4))
-                        img_t.to_filename(out_dirs[2+3*idx]+fname)
-                    else:
-                        break
-
-    def visualize(self, src, gen, tar, dir):
-        plt.set_cmap("gray")
-        plt.subplots_adjust(wspace=0.3, hspace=0.3)
-        fig, axs = plt.subplots(3, 9, figsize=(20, 15))
-
-        step = np.array(gen.shape)//3
-        offset = step//2
-
-        for i in range(3):
-
-            axs[i, 0].imshow(src[i*step[0]-offset[0], :, :], vmin=-1, vmax=1)
-            axs[i, 0].set_title('Z: x_{}'.format(i), fontsize=25)
-            axs[i, 0].axis('off')
-            axs[i, 1].imshow(gen[i*step[0]-offset[0], :, :], vmin=-1, vmax=1)
-            axs[i, 1].set_title('G: x_{}'.format(i), fontsize=25)
-            axs[i, 1].axis('off')
-            axs[i, 2].imshow(tar[i*step[0]-offset[0], :, :], vmin=-1, vmax=1)
-            axs[i, 2].set_title('T: x_{}'.format(i), fontsize=25)
-            axs[i, 2].axis('off')
-
-            axs[i, 3].imshow(src[:, i*step[1]-offset[1], :], vmin=-1, vmax=1)
-            axs[i, 3].set_title('Z: y_{}'.format(i), fontsize=25)
-            axs[i, 3].axis('off')
-            axs[i, 4].imshow(gen[:, i*step[1]-offset[1], :], vmin=-1, vmax=1)
-            axs[i, 4].set_title('G: y_{}'.format(i), fontsize=25)
-            axs[i, 4].axis('off')
-            axs[i, 5].imshow(tar[:, i*step[1]-offset[1], :], vmin=-1, vmax=1)
-            axs[i, 5].set_title('T: y_{}'.format(i), fontsize=25)
-            axs[i, 5].axis('off')
-
-            axs[i, 6].imshow(src[:, :, i*step[2]-offset[2]], vmin=-1, vmax=1)
-            axs[i, 6].set_title('Z: z_{}'.format(i), fontsize=25)
-            axs[i, 6].axis('off')
-            axs[i, 7].imshow(gen[:, :, i*step[2]-offset[2]], vmin=-1, vmax=1)
-            axs[i, 7].set_title('G: z_{}'.format(i), fontsize=25)
-            axs[i, 7].axis('off')
-            axs[i, 8].imshow(tar[:, :, i*step[2]-offset[2]], vmin=-1, vmax=1)
-            axs[i, 8].set_title('T: z_{}'.format(i), fontsize=25)
-            axs[i, 8].axis('off')
-        plt.savefig(dir.replace('nii', 'png'), dpi=150)
-        plt.close()
+    def clear(self, ext):
+        out_dir = self.config['out_dir']
+        if not os.path.exists(out_dir):
+            os.mkdir(out_dir)
+        out_dirs = [out_dir + 'Z/', out_dir + 'CG_1/', out_dir + 'T/']
+        if ext:
+            out_dirs += [out_dir + 'Z_E/', out_dir + 'CG_1_E/', out_dir + 'T_E/']
+        for o in out_dirs:
+            if os.path.isdir(o):
+                shutil.rmtree(o)
+            if not os.path.exists(o):
+                os.mkdir(o)
+        return out_dirs
 
 
 class RCGANs_Wrapper:
@@ -908,7 +757,7 @@ class RCGANs_Wrapper:
         d_losses, g_losses, c_losses = [], [], []
         d_g, d_g2, d_r = [], [], []
 
-        torch.use_deterministic_algorithms(False)
+        # torch.use_deterministic_algorithms(False)
         for inputs, targets, _, labels in self.train_dataloader:
             inputs, targets, labels = inputs.to(device), targets.to(device), labels.to(device).float()
             self.g.zero_grad()
@@ -957,7 +806,7 @@ class RCGANs_Wrapper:
             # sys.exit()
             # clip = 1
             # nn.utils.clip_grad_norm_(self.model.parameters(), clip)
-        torch.use_deterministic_algorithms(True)
+        # torch.use_deterministic_algorithms(True)
         # print((d_loss), (g_loss), (d_g), (d_g2))
         return np.mean(d_losses), np.mean(g_losses), np.mean(c_losses), np.mean(d_g), np.mean(d_g2), np.mean(d_r)
 
@@ -1101,7 +950,7 @@ class CNN_Wrapper:
         self.config = config
         self.data_dir = config['data_dir']
         self.lr = config['lr']
-        self.seed = exp_idx*1000
+        self.seed = exp_idx*100
         self.exp_idx = exp_idx
         self.model_name = model_name
         self.loss_metric = config['loss_metric']

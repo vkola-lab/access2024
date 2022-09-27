@@ -61,22 +61,16 @@ class B_Data(Dataset):
 
         # print(len(tmp_f))
         l = len(self.data_list)
-        # print(l)
-        # print('pmci', self.time_hit.count(1))
-        # sys.exit()
         split1 = int(l*ratio[0])
         split2 = int(l*(ratio[0]+ratio[1]))
         idxs = list(range(l))
         random.shuffle(idxs)
         if 'train' in stage:
             self.index_list = idxs[:split1]
-            # print(len(self.index_list))
         elif 'valid' in stage:
             self.index_list = idxs[split1:split2]
-            # print(len(self.index_list))
         elif 'test' in stage:
             self.index_list = idxs[split2:]
-            # print(len(self.index_list))
         elif 'all' in stage:
             self.index_list = idxs
             # print(len(self.index_list))
@@ -129,7 +123,7 @@ class B_IQ_Data(Dataset):
         random.seed(seed)
 
         self.stage = stage
-        self.names=['T', 'Z', 'G', 'CG_1', 'CG_2']
+        self.names=['T', 'Z', 'G', 'CG_1']
         if external:
             self.names = [n+'_E' for n in self.names]
         self.names = [n+'/' for n in self.names]
@@ -190,6 +184,7 @@ class B_IQ_Data(Dataset):
         idx = self.index_list[idx]
 
         datas = []
+        datas_name = []
         for n in self.names:
             filename = self.data_list[idx].replace(self.names[0],n)
 
@@ -203,21 +198,10 @@ class B_IQ_Data(Dataset):
                     data = data.astype(np.int)
             # data = np.expand_dims(data, axis=0)
             datas.append(data)
+            datas_name.append(filename)
         # print(len(datas))
         # print(datas[0].shape)
-        # sys.exit()
-        return datas
-
-
-        # return data, obs, hit
-
-    def get_sample_weights(self):
-        num_classes = len(set(self.time_hit))
-        counts = [self.time_hit.count(i) for i in range(num_classes)]
-        count = len(self.time_hit)
-        weights = [count / counts[i] for i in self.time_hit]
-        class_weights = [count/c for c in counts]
-        return weights, class_weights
+        return datas, datas_name
 
 
 def random_partition(idxs, stage, ratio=(0.6, 0.2, 0.2)):

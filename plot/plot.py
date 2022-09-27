@@ -24,21 +24,23 @@ def plot_legend(axes, crv_lgd_hdl, crv_info, set1, set2):
 
     hdl = collections.defaultdict(list)
     val = collections.defaultdict(list)
+    mode_names = {'T':'Orig', 'Z':'Dmgd', 'G':'G.V1', 'CG_1':'G.V2'}
+    # hdl_crv = {m:{} for m in mode_names}
 
     for ds in ds_name:
         for m in m_name:
             # print(m, ds)
             hdl[ds].append(crv_lgd_hdl[m][ds])
-            val[ds].append('{}: {:.3f}$\pm${:.3f}'.format(m, crv_info[m][ds]['auc_mean'], crv_info[m][ds]['auc_std']))
+            val[ds].append('{}: {:.3f}$\pm${:.3f}'.format(mode_names[m], crv_info[m][ds]['auc_mean'], crv_info[m][ds]['auc_std']))
         extra = Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0)
         # val[ds].append('p-value: {:.4e}'.format(p_val(set1[ds], set2[ds])))
-
+        # print(val[ds])
         axes[ds].legend(hdl[ds]+[extra], val[ds],
-                        facecolor='w', prop={"weight":'bold', "size":17},  # frameon=False,
-                        bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),
-                        loc='lower left')
+                        facecolor='w', prop={"weight":'bold', "size":10},  # frameon=False,
+                        bbox_to_anchor=(0.1, 0.1, 0.5, 0.5),
+                        loc='lower center')
 
-def roc_plot_perfrom_table(txt_file=None, mode=['T', 'Z', 'G', 'CG_1', 'CG_2']):
+def roc_plot_perfrom_table(txt_file=None, mode=['T', 'Z', 'G', 'CG_1']):
     roc_info, pr_info = {}, {}
     aucs, apss = {}, {}
     datas = ['test', 'ext']
@@ -49,7 +51,7 @@ def roc_plot_perfrom_table(txt_file=None, mode=['T', 'Z', 'G', 'CG_1', 'CG_2']):
             x = 3
             # csvname = os.path.expanduser(csvname)
             for exp_idx in range(x):
-                labels, scores = read_raw_score('../checkpoint_dir/CNN_Standard_{}/raw_score_{}_{}.txt'.format(m, ds, exp_idx))
+                labels, scores = read_raw_score('../checkpoint_dir/CNN_Standard_{}{}/raw_score_{}_{}.txt'.format(m, exp_idx, ds, exp_idx))
                 Scores.append(scores)
                 Labels.append(labels)
 
@@ -65,7 +67,7 @@ def roc_plot_perfrom_table(txt_file=None, mode=['T', 'Z', 'G', 'CG_1', 'CG_2']):
     fig, axes_ = plt.subplots(1, 2, figsize=[18, 6], dpi=100)
     axes = dict(zip(datas, axes_))
     lines = ['-', '--', '-.', ':', ' ']
-    hdl_crv = {m:{} for m in mode}
+    hdl_crv = {m: {} for m in mode}
     for i, ds in enumerate(datas):
         title = ds.replace('ext', 'NACC')
         i += 1

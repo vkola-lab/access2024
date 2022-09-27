@@ -4,6 +4,7 @@
 
 import json
 import csv
+import math
 import os, sys
 try:
     import matlab.engine
@@ -235,15 +236,20 @@ def iqa_tensor(tensor, eng, metric, filename='', target=''):
 
     for side in range(len(tensor.shape)):
         vals = []
-        for slice_idx in [70]:
+        for slice_idx in range(65, 75):
             if side == 0:
                 img = tensor[slice_idx, :, :]
             elif side == 1:
                 img = tensor[:, slice_idx, :]
             else:
                 img = tensor[:, :, slice_idx]
+            if np.sum(img) == 0:
+                continue
             img = matlab.double(img.tolist())
-            vals += [func(img)]
+            val = func(img)
+            if math.isnan(val):
+                continue
+            vals += [val]
         out += vals
     val_avg = sum(out) / len(out)
     #np.save(target+filename+'$'+metric, out)
