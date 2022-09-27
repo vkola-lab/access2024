@@ -33,6 +33,7 @@ See the paper for additional information
 3. CUBLAS_WORKSPACE_CONFIG=:4096:8 python classifier_main.py    (Evaluate prediction performance using CNN)
 4. (optional, in plot/) python plot.py
 5. (optional, image quality) python image_quality.py
+6. (optional, MCC) python matrix_stat.py
 
 ## Environments
 
