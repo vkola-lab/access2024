@@ -61,11 +61,8 @@ def compute_mlp_matrix_stat():
         Matrix = []
         for exp in range(5): 
             labels, scores = read_raw_score(f'../checkpoint_dir/mlp_bce_{exp}_exp{exp}/raw_score_{dataset}_{exp}_{stage}.txt')
-            print(labels)
-            print(scores)
             Matrix.append(confusion_matrix(labels, scores))
         print(stat_metric(Matrix))
-        raise NotImplementedError
 
 if __name__ == "__main__":
     # Matrix = []
