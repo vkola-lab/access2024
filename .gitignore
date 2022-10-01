@@ -1,0 +1,3 @@
+checkpoint_dir/
+__pycache__/
+wandb/

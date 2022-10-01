@@ -44,10 +44,11 @@ def stat_metric(matrices):
     # print('Sens {0:.4f}+/-{1:.4f}'.format(float(np.mean(Sens)), float(np.std(Sens))))
     # print('Spec {0:.4f}+/-{1:.4f}'.format(float(np.mean(Spec)), float(np.std(Spec))))
     # print('F1   {0:.4f}+/-{1:.4f}'.format(float(np.mean(F1)),   float(np.std(F1))))
-    # print('MCC  {0:.4f}+/-{1:.4f}'.format(float(np.mean(MCC)), float(np.std(MCC))))
+    MCC_text = 'MCC  {0:.4f}+/-{1:.4f}'.format(float(np.mean(MCC)), float(np.std(MCC)))
     group = (float(np.mean(Accu)), float(np.std(Accu)), float(np.mean(Sens)), float(np.std(Sens)), float(np.mean(Spec)), \
     float(np.std(Spec)), float(np.mean(F1)),   float(np.std(F1)), float(np.mean(MCC)), float(np.std(MCC)))
-    return group
+    return group, MCC_text
+
 
 def compute_mlp_matrix_stat():
     Matrix = []
@@ -65,12 +66,20 @@ def compute_mlp_matrix_stat():
         print(stat_metric(Matrix))
 
 if __name__ == "__main__":
-    # Matrix = []
-    # for i in range(10):
-    #     labels, scores = read_raw_score('../checkpoint_dir/Vol_RF/raw_score_{}.txt'.format(i))
-    #     Matrix.append(confusion_matrix(labels, scores))
-    # stat_metric(Matrix)
-    compute_mlp_matrix_stat()
+    names = ['T', 'Z', 'G', 'CG_1']
+    datas = ['test', 'ext']
+    table = []
+    table.append(['Model', 'Accuracy', 'Precision (weighted avg)', 'Recall (weighted avg)', 'F1-score (weighted avg)'])
+    for n in names:
+        for d in datas:
+            Matrix = []
+            for i in range(5):
+                folder = 'CNN_Standard_'+n+str(i)
+                labels, scores = read_raw_score('../checkpoint_dir/'+folder+'/raw_score_{}_{}.txt'.format(d, i))
+                Matrix.append(confusion_matrix(labels, scores))
+            _, txt = stat_metric(Matrix)
+            print(n, d, txt)
+
 
 
 

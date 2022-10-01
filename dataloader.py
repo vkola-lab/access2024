@@ -7,6 +7,7 @@ import glob
 import json
 import os, sys
 import torch
+import copy
 
 import numpy as np
 import nibabel as nib
@@ -20,7 +21,7 @@ SCALE = 1 #rescale to 0~2.5
 
 class B_Data(Dataset):
     #Brain data
-    def __init__(self, data_dir, stage, ratio=(0.6, 0.2, 0.2), seed=1000, step_size=10, external=False, Pre=False):
+    def __init__(self, data_dir, stage, ratio=(0.8, 0.1, 0.1), seed=1000, step_size=10, external=False, Pre=False):
         random.seed(seed)
 
         self.stage = stage
@@ -66,13 +67,10 @@ class B_Data(Dataset):
         random.shuffle(idxs)
         if 'train' in stage:
             self.index_list = idxs[:split1]
-            # print(len(self.index_list))
         elif 'valid' in stage:
             self.index_list = idxs[split1:split2]
-            # print(len(self.index_list))
         elif 'test' in stage:
             self.index_list = idxs[split2:]
-            # print(len(self.index_list))
         elif 'all' in stage:
             self.index_list = idxs
             # print(len(self.index_list))
@@ -98,14 +96,17 @@ class B_Data(Dataset):
                 data = data.astype(np.int)
         data = np.expand_dims(data, axis=0)
 
-        g_data = data[:,::self.step_size]
-        print('dataloader', data.shape)
-        print('dataloader', g_data.shape)
+        g_data = copy.deepcopy(data)
+        # randomly remove information
+        
+        # g_data[:,::self.step_size] = 0
+        indices = list(range(g_data.shape[1]))
+        random.shuffle(indices)
+        g_data[:, indices[:self.step_size]] = 0
+        # print('g', g_data[:, :, 80, 80])
+        # sys.exit()
 
-        sys.exit()
         return g_data, data, self.data_list[idx], hit
-
-
         # return data, obs, hit
 
     def get_sample_weights(self):
@@ -118,11 +119,11 @@ class B_Data(Dataset):
 
 class B_IQ_Data(Dataset):
     #Brain data
-    def __init__(self, data_dir, stage, ratio=(0.6, 0.2, 0.2), seed=1000, step_size=10, external=False):
+    def __init__(self, data_dir, stage, ratio=(0.8, 0.1, 0.1), seed=1000, step_size=10, external=False):
         random.seed(seed)
 
         self.stage = stage
-        self.names=['T', 'Z', 'G', 'CG_1', 'CG_2']
+        self.names=['T', 'Z', 'G', 'CG_1']
         if external:
             self.names = [n+'_E' for n in self.names]
         self.names = [n+'/' for n in self.names]
@@ -183,6 +184,7 @@ class B_IQ_Data(Dataset):
         idx = self.index_list[idx]
 
         datas = []
+        datas_name = []
         for n in self.names:
             filename = self.data_list[idx].replace(self.names[0],n)
 
@@ -196,21 +198,10 @@ class B_IQ_Data(Dataset):
                     data = data.astype(np.int)
             # data = np.expand_dims(data, axis=0)
             datas.append(data)
+            datas_name.append(filename)
         # print(len(datas))
         # print(datas[0].shape)
-        # sys.exit()
-        return datas
-
-
-        # return data, obs, hit
-
-    def get_sample_weights(self):
-        num_classes = len(set(self.time_hit))
-        counts = [self.time_hit.count(i) for i in range(num_classes)]
-        count = len(self.time_hit)
-        weights = [count / counts[i] for i in self.time_hit]
-        class_weights = [count/c for c in counts]
-        return weights, class_weights
+        return datas, datas_name
 
 
 def random_partition(idxs, stage, ratio=(0.6, 0.2, 0.2)):
@@ -258,11 +249,11 @@ class ParcellationDataBinary(Dataset):
             self.parcellation_file['age'] = self.age
         if add_mmse:
             self.parcellation_file['mmse'] = self.mmse
-        self._cutoff(36)  # generate labels for files
+        self._cutoff(36.0)
         self._prep_data(self.parcellation_file)
 
-    def _cutoff(self, n_months: int):
-        valid_datapoints = [t > n_months or y == 1 for t,y in zip(self.time_obs, self.hit)]
+    def _cutoff(self, n_months: float):
+        valid_datapoints = [t >= n_months or y == 1 for t,y in zip(self.time_obs, self.hit)]
         self.rids = np.array(self.rids)[valid_datapoints]
         self.hit = np.array(self.hit)[valid_datapoints]
         self.time_obs = np.array(self.time_obs)[valid_datapoints]

@@ -1,21 +1,33 @@
-# main file for 3D Reconstruction GAN
-# Created: 10/7/2021
-# Status: ok
-# CUBLAS_WORKSPACE_CONFIG=:4096:8 python rcgan_main.py
+# main file for CNN classifier
+# Updated: 6/8/2022
+# Status: OK
+# CUBLAS_WORKSPACE_CONFIG=:4096:8 python classifier_main.py
+
+# results in current setting:
+# should be reproducible with specified seed and deterministic behavior enabled.
+# 
+# ----------------------------------------------------------------------------------------------------
+# Model                Accuracy      Precision (weighted avg)    Recall (weighted avg)    F1-score (weighted avg)
+# -------------------  ------------  --------------------------  -----------------------  -------------------------
+# CNN_Standard_T       0.731+-0.050  0.760+-0.039                0.731+-0.050             0.732+-0.042
+# CNN_Standard_T_E     0.671+-0.009  0.676+-0.005                0.671+-0.009             0.668+-0.012
+# CNN_Standard_Z       0.640+-0.050  0.637+-0.030                0.640+-0.050             0.627+-0.034
+# CNN_Standard_Z_E     0.572+-0.016  0.588+-0.023                0.572+-0.016             0.553+-0.013
+# CNN_Standard_G       0.646+-0.046  0.686+-0.050                0.646+-0.046             0.594+-0.069
+# CNN_Standard_G_E     0.528+-0.028  0.532+-0.028                0.528+-0.028             0.493+-0.053
+# CNN_Standard_CG_1    0.686+-0.072  0.701+-0.073                0.686+-0.072             0.688+-0.073
+# CNN_Standard_CG_1_E  0.621+-0.019  0.624+-0.019                0.621+-0.019             0.618+-0.019
+# ----------------------------------------------------------------------------------------------------
 
 import sys
 import torch
-import wandb
 
 import numpy as np
 
-from networks import RCGAN_Wrapper
 from networks import CNN_Wrapper
 from utils import read_json
 from tabulate import tabulate
 
-
-SWEEP = 0
 
 def CNN(model_name, config, Wrapper, num_exps, train=True):
     print('Evaluation metric: {}'.format(config['loss_metric']))
@@ -29,7 +41,7 @@ def CNN(model_name, config, Wrapper, num_exps, train=True):
             net.train(epochs = config['train_epochs'], training_prints=2)
         else:
             net.load(net.checkpoint_dir)
-        # net.visualize(prefix=model_name)
+        net.visualize(prefix=model_name)
         reports[0].append(net.test_b(out=True,key='test'))
         reports[1].append(net.test_b(out=True,key='ext'))
         reports[2].append(net.test_b(out=True,key='train'))
@@ -45,25 +57,34 @@ def CNN(model_name, config, Wrapper, num_exps, train=True):
         res += ['%.3f+-%.3f' % (np.mean(rws), np.std(rws))]
         fws = [r['weighted avg']['f1-score'] for r in rep]
         res += ['%.3f+-%.3f' % (np.mean(fws), np.std(fws))]
-        if SWEEP:
-            wandb.log({"f1score":np.mean(fws)})
         # fms = [r['macro avg']['f1-score'] for r in rep]
         # res += ['%.3f+-%.3f' % (np.mean(fms), np.std(fms))]
 
     return ress
 
-def CNN_main():
+def main():
     num_exps = 5
     table = []
     table.append(['Model', 'Accuracy', 'Precision (weighted avg)', 'Recall (weighted avg)', 'F1-score (weighted avg)'])
+    # table.append(['Model', 'Accuracy', 'Precision (macro avg)', 'Precision (weighted avg)', 'Recall (macro avg)', 'Recall (weighted avg)', 'F1-score (macro avg)', 'F1-score (weighted avg)'])
     torch.use_deterministic_algorithms(True)
     data_root = '/data1/RGAN_Data/'
-    datasets = ['CG_1']
+    # datasets = ['T', 'Z', 'G', 'CG_1', 'CG_2']
+    datasets = ['T', 'Z', 'G', 'CG_1']
+    # datasets = ['G', 'CG_1']
+    # datasets = ['G']
+    # datasets = ['CG_1']
+    # datasets = ['T', 'Z'] 
+
+
     
-    # train = False
+    # datasets = ['CG_2']
+    print('Explanation: T (Original ADNI), Z (Sliced ADNI), [otherwise] (Generated ADNI)')
+    train = False
     train = True
     for d in datasets:
         print('-'*100)
+        print('Running CNN & MLP classifiers for AD status; Dataset: '+d)
         config = read_json('./config.json')['cnn_E']
         config['data_dir'] = data_root+d+'/'
         # model_name = 'CNN_'+d
@@ -71,44 +92,14 @@ def CNN_main():
         ress = CNN(model_name, config, CNN_Wrapper, num_exps, train)
         table.append(ress[0])
         table.append(ress[1])
+        # table.append(ress[2])
+        # table.append(ress[3])
+        
         print('-'*100)
     print(tabulate(table, headers='firstrow'))
-
-def RCGAN(model_name, config, Wrapper):
-    print('Loss metric: {}'.format(config['loss_metric']))
-    net = Wrapper(config, model_name, SWEEP)
-    # net.train(epochs = config['train_epochs'])
-    if not SWEEP:
-        net.load(fixed=False)
-    net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True)
-    CNN_main()
-
-
-def main():
-    torch.use_deterministic_algorithms(True)
-
-    if SWEEP:
-        config_default = read_json('./config.json')['rgan']
-        wandb.init(config=config_default)
-        config = wandb.config
-    else:
-        print('-'*100)
-        print('Running 3D Reconstruction & Classification GAN (3D-RCGAN)')
-        config = read_json('./config.json')['rgan']
-
-    model_name = str(SWEEP)+'_RCGAN_{}'.format(config['loss_metric'])
-    RCGAN(model_name, config, RCGAN_Wrapper)
     print('-'*100)
-
-    if not SWEEP:
-        print('Completed')
+    print('Completed')
 
 
 if __name__ == "__main__":
-    if SWEEP:
-        print('[performing parameters searching...]')
-        sweep_config = read_json('./config.json')['sweep_rgan']
-        sweep_id = wandb.sweep(sweep_config, project='RCGAN-22')
-        wandb.agent(sweep_id, main, count=100)
-    else:
-        main()
+    main()
