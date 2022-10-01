@@ -49,12 +49,31 @@ def stat_metric(matrices):
     float(np.std(Spec)), float(np.mean(F1)),   float(np.std(F1)), float(np.mean(MCC)), float(np.std(MCC)))
     return group
 
-if __name__ == "__main__":
+def compute_mlp_matrix_stat():
     Matrix = []
-    for i in range(10):
-        labels, scores = read_raw_score('../checkpoint_dir/Vol_RF/raw_score_{}.txt'.format(i))
-        Matrix.append(confusion_matrix(labels, scores))
-    stat_metric(Matrix)
+    for dataset in ('NACC','ADNI',):
+        if dataset == 'NACC':
+            stage = 'all'
+        elif dataset == 'ADNI':
+            stage = 'test'
+        else:
+            raise 'NotImplementedError'
+        Matrix = []
+        for exp in range(5): 
+            labels, scores = read_raw_score(f'../checkpoint_dir/mlp_bce_{exp}_exp{exp}/raw_score_{dataset}_{exp}_{stage}.txt')
+            print(labels)
+            print(scores)
+            Matrix.append(confusion_matrix(labels, scores))
+        print(stat_metric(Matrix))
+        raise NotImplementedError
+
+if __name__ == "__main__":
+    # Matrix = []
+    # for i in range(10):
+    #     labels, scores = read_raw_score('../checkpoint_dir/Vol_RF/raw_score_{}.txt'.format(i))
+    #     Matrix.append(confusion_matrix(labels, scores))
+    # stat_metric(Matrix)
+    compute_mlp_matrix_stat()
 
 
 

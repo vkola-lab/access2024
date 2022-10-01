@@ -236,16 +236,16 @@ class ParcellationDataBinary(Dataset):
     def __init__(self, exp_idx, stage='train', dataset='ADNI', ratio=(0.6, 0.2, 0.2), add_age=False,
                  add_mmse=False, partitioner=retrieve_kfold_partition):
         self.exp_idx = exp_idx
-        self.ratio = ratio
-        self.stage = stage
-        self.partitioner = partitioner
+        self.ratio = ratio  # ratios for train/valid/test
+        self.stage = stage  # train, validate, or test
+        self.partitioner = partitioner  # method of splitting data i.e. stratified, kfold, etc
         json_props = read_json('./mlp_config.json')
         self.csv_directory = json_props['datadir']
         self.csvname = self.csv_directory + json_props['metadata_fi'][dataset]
         self.parcellation_file = pd.read_csv(
             self.csv_directory + json_props['parcellation_fi'], dtype={'RID': str})
         self.parcellation_file = self.parcellation_file.query(
-            'Dataset == @dataset').drop(columns=['Dataset', 'PROGRESSION_CATEGORY']).copy()
+            'Dataset == @dataset').drop(columns=['Dataset', 'PROGRESSION_CATEGORY']).copy()  # query the parcellations
         self.rids, self.time_obs, self.hit, self.age, self.mmse = \
             read_csv_demog(self.csvname)
         self.parcellation_file['RID'] = self.parcellation_file['RID'].apply(
@@ -253,12 +253,12 @@ class ParcellationDataBinary(Dataset):
         )
         self.parcellation_file.set_index('RID', inplace=True)
         self.parcellation_file = self.parcellation_file.loc[self.rids,:].reset_index(
-                drop=True)
+                drop=True)  # sort by RID
         if add_age:
             self.parcellation_file['age'] = self.age
         if add_mmse:
             self.parcellation_file['mmse'] = self.mmse
-        self._cutoff(36)
+        self._cutoff(36)  # generate labels for files
         self._prep_data(self.parcellation_file)
 
     def _cutoff(self, n_months: int):
@@ -272,13 +272,13 @@ class ParcellationDataBinary(Dataset):
 
     def _prep_data(self, feature_df):
         idxs = list(range(len(self.rids)))
-        self.index_list = self.partitioner(idxs, stage=self.stage, exp_idx=self.exp_idx)
+        self.index_list = self.partitioner(idxs, stage=self.stage, exp_idx=self.exp_idx)  # partition the data
         self.rid = np.array(self.rids)
         feature_df.drop(columns=["CSF",
                         "3thVen",
                         "4thVen",
                         "InfLatVen",
-                        "LatVen"], inplace=True)
+                        "LatVen"], inplace=True)  # drop ventricles
         self.labels = feature_df.columns
         self.data = feature_df.to_numpy()
 

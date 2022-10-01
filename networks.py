@@ -1802,6 +1802,7 @@ class MLP_Wrapper:
     def test_surv_data_optimal_epoch(self, external_data=False, fold='all'):
         key = ['ADNI' if not external_data else 'NACC'][0]
         preds, pmci, _ = self.retrieve_testing_data(external_data, fold)
+        preds_raw = preds.squeeze()
         preds = torch.round(preds).squeeze()
         report = classification_report(
             y_true=pmci,
@@ -1809,23 +1810,9 @@ class MLP_Wrapper:
             target_names= [key + fold + '_0', key + fold + '_1'],
             labels=[0,1],
             zero_division=0, output_dict=True)
+        f = open(self.checkpoint_dir + 'raw_score_{}_{}_{}.txt'.format(key, self.exp_idx, fold), 'w')
+        write_raw_score(f, preds_raw, pmci)
         return report
-
-def tabulate_report(report, dataset):
-    report = report[dataset]
-    label1 = f'{dataset}_1'
-    label0 = f'{dataset}_0'
-    value_list = {label0: [], label1: [], 'accuracy': [], 'weighted avg': [], 'macro avg': []}
-    for label in value_list:
-        for idx in report:
-            value_list[label].append(pd.Series(idx[label]))
-        value_list[label] = pd.concat(value_list[label], axis=1).T.describe()
-        value_list[label] = value_list[label].loc[['mean','std'],:].copy()
-    with open(f'checkpoint_dir/results_bce_{dataset}.txt','w') as fi:
-        for label in value_list:
-            fi.write('\n\n' +label + '\n')
-            fi.write(tabulate.tabulate(value_list[label], headers=value_list[label].columns, showindex="always"))
-    return value_list
 
 def run(load=True):
     mlp_list = []
@@ -1848,11 +1835,28 @@ def run(load=True):
             mlp.load()
         else:
             mlp.train(1000)
+            mlp.load()
         mlp_output['NACCall'].append(mlp.test_surv_data_optimal_epoch(external_data=True))
         mlp_output['ADNItrain'].append(mlp.test_surv_data_optimal_epoch(external_data=False, fold='train'))
         mlp_output['ADNIvalid'].append(mlp.test_surv_data_optimal_epoch(external_data=False, fold='valid'))
         mlp_output['ADNItest'].append(mlp.test_surv_data_optimal_epoch(external_data=False, fold='test'))
     return mlp_output
+
+def tabulate_report(report, dataset):
+    report = report[dataset]
+    label1 = f'{dataset}_1'
+    label0 = f'{dataset}_0'
+    value_list = {label0: [], label1: [], 'accuracy': [], 'weighted avg': [], 'macro avg': []}
+    for label in value_list:
+        for idx in report:
+            value_list[label].append(pd.Series(idx[label]))
+        value_list[label] = pd.concat(value_list[label], axis=1).T.describe()
+        value_list[label] = value_list[label].loc[['mean','std'],:].copy()
+    with open(f'checkpoint_dir/results_bce_{dataset}.txt','w') as fi:
+        for label in value_list:
+            fi.write('\n\n' +label + '\n')
+            fi.write(tabulate.tabulate(value_list[label], headers=value_list[label].columns, showindex="always"))
+    return value_list
 
 def run_and_tabulate(force):
     g = run(force)
@@ -1861,4 +1865,4 @@ def run_and_tabulate(force):
     tabulate_report(g,'NACCall')
 
 if __name__ == "__main__":
-    run_and_tabulate(False)
+    run_and_tabulate(True)
