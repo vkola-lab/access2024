@@ -26,17 +26,13 @@ nacc    0         101    77
         1          95    55Sex
 
 ADNI
-              age  mmse  Dataset
-progress sex                    
-0        F     97    97       97
-         M    130   130      130
-1        F     50    50       50
-         M     67    67       67
+progress    0   1
+sex              
+F          97  50
+M         130  67
 
 NACC
-              age  mmse  Dataset
-progress sex                    
-0        F     39    39       39
-         M     62    62       62
-1        F     49    49       49
-         M     46    46       46
+progress   0   1
+sex             
+F         39  49
+M         62  46

@@ -53,9 +53,9 @@ def demo_stats(df: pd.DataFrame):
         adni = df.query('Dataset == \'adni\'').copy()
         nacc = df.query('Dataset == \'nacc\'').copy()
         fi.write('\n\nADNI\n')
-        fi.write(str(adni.groupby(['progress','sex']).agg(len)))
+        fi.write(str(pd.crosstab(adni['sex'], adni['progress'])))
         fi.write('\n\nNACC\n')
-        fi.write(str(nacc.groupby(['progress','sex']).agg(len)))
+        fi.write(str(pd.crosstab(nacc['sex'], nacc['progress'])))
 
 
 if __name__ == '__main__':
