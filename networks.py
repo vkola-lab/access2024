@@ -1869,4 +1869,4 @@ def run_and_tabulate(force):
     tabulate_report(g,'NACCall')
 
 if __name__ == "__main__":
-    run_and_tabulate(True)
+    run_and_tabulate(False)

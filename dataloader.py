@@ -253,7 +253,7 @@ class ParcellationDataBinary(Dataset):
         self._prep_data(self.parcellation_file)
 
     def _cutoff(self, n_months: float):
-        valid_datapoints = [t >= n_months or y == 1 for t,y in zip(self.time_obs, self.hit)]
+        valid_datapoints = [t > n_months or y == 1 for t,y in zip(self.time_obs, self.hit)]
         self.rids = np.array(self.rids)[valid_datapoints]
         self.hit = np.array(self.hit)[valid_datapoints]
         self.time_obs = np.array(self.time_obs)[valid_datapoints]
