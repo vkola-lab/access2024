@@ -225,7 +225,7 @@ def random_partition(idxs, stage, ratio=(0.6, 0.2, 0.2)):
 
 class ParcellationDataBinary(Dataset):
     def __init__(self, exp_idx, stage='train', dataset='ADNI', ratio=(0.6, 0.2, 0.2), add_age=False,
-                 add_mmse=False, partitioner=retrieve_kfold_partition):
+                 add_mmse=False, add_sex=False, partitioner=retrieve_kfold_partition):
         self.exp_idx = exp_idx
         self.ratio = ratio  # ratios for train/valid/test
         self.stage = stage  # train, validate, or test
@@ -237,7 +237,7 @@ class ParcellationDataBinary(Dataset):
             self.csv_directory + json_props['parcellation_fi'], dtype={'RID': str})
         self.parcellation_file = self.parcellation_file.query(
             'Dataset == @dataset').drop(columns=['Dataset', 'PROGRESSION_CATEGORY']).copy()  # query the parcellations
-        self.rids, self.time_obs, self.hit, self.age, self.mmse = \
+        self.rids, self.time_obs, self.hit, self.age, self.mmse, self.sex = \
             read_csv_demog(self.csvname)
         self.parcellation_file['RID'] = self.parcellation_file['RID'].apply(
                 lambda x: x.zfill(4)
@@ -249,6 +249,8 @@ class ParcellationDataBinary(Dataset):
             self.parcellation_file['age'] = self.age
         if add_mmse:
             self.parcellation_file['mmse'] = self.mmse
+        if add_sex:
+            self.parcellation_file['sex'] = self.sex
         self._cutoff(36.0)
         self._prep_data(self.parcellation_file)
 
@@ -288,6 +290,9 @@ class ParcellationDataBinary(Dataset):
 
     def get_data(self):
         return self.data
+    
+    def get_labels(self):
+        return self.PMCI
 
 
 if __name__ == "__main__":

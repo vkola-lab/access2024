@@ -1,0 +1,42 @@
+MEAN
+
+                        age       mmse
+Dataset progress                      
+adni    0         71.162996  28.233480
+        1         72.957265  27.042735
+nacc    0         73.524752  27.142857
+        1         75.873684  25.872727
+
+STD
+
+                       age      mmse
+Dataset progress                    
+adni    0         7.312704  1.634735
+        1         7.218676  1.850817
+nacc    0         9.979776  2.266150
+        1         9.385590  2.486725
+
+N
+
+                  age  mmse
+Dataset progress           
+adni    0         227   227
+        1         117   117
+nacc    0         101    77
+        1          95    55Sex
+
+ADNI
+              age  mmse  Dataset
+progress sex                    
+0        F     97    97       97
+         M    130   130      130
+1        F     50    50       50
+         M     67    67       67
+
+NACC
+              age  mmse  Dataset
+progress sex                    
+0        F     39    39       39
+         M     62    62       62
+1        F     49    49       49
+         M     46    46       46
