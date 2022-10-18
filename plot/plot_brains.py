@@ -96,18 +96,18 @@ class BrainSample(object):
         caxis: tuple=(0, 2.5),
         colorbar: bool=True):
         slices = []
-        for idx in np.arange(0,len(self.idx_missing), 8):
+        for idx in np.arange(5,len(self.idx_missing)-5, 10):
             curr_slices = []
             for val in ['orig', 'noised', 'vanilla', 'novel']:
                 curr_slices.append(np.squeeze(self.brains[val].original_brain[self.idx_missing[idx],:,:]))
-            curr_slices = np.concatenate(curr_slices, axis=0).T
+            curr_slices = np.concatenate(curr_slices, axis=1).T
             slices.append(curr_slices)
-        slices = np.concatenate(slices, axis=0)
+        slices = np.concatenate(slices, axis=1)
         ax = plt.imshow(slices, cmap=plt.cm.gray)
         ax = plt.gca()
         ax.axis('off')
         ax.invert_yaxis()
-        plt.show()
+        plt.savefig('figure4.eps', dpi=300)
 
     def plot_slice_diff(
         self,
