@@ -255,9 +255,9 @@ class NiftiBrain:
     @classmethod
     def from_file(cls, root: str, folder: str, file_name: str):
         """
-        from_file _summary_
+        from_file 
 
-        _extended_summary_
+        creates brain from file
 
         Parameters
         ----------
