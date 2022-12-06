@@ -18,10 +18,10 @@ SWEEP = 0
 def RGAN(model_name, config, Wrapper):
     print('Loss metric: {}'.format(config['loss_metric']))
     net = Wrapper(config, model_name, SWEEP)
-    net.train(epochs = config['train_epochs'])
+    # net.train(epochs = config['train_epochs'])
     if not SWEEP:
         net.load(fixed=False)
-        net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=False, ext=True)
+        net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True)
 
 
 def main():
@@ -33,7 +33,7 @@ def main():
         config = wandb.config
     else:
         print('-'*100)
-        print('Running 3D Reconstruction GAN (3D-RGAN)')
+        print('Running 3D Reconstruction GAN (GAN Loss + P Loss)')
         config = read_json('./config.json')['rgan']
             
     model_name = str(SWEEP)+'_RGAN_{}'.format(config['loss_metric'])

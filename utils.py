@@ -4,6 +4,7 @@
 
 import json
 import csv
+import math
 import os, sys
 try:
     import matlab.engine
@@ -235,15 +236,20 @@ def iqa_tensor(tensor, eng, metric, filename='', target=''):
 
     for side in range(len(tensor.shape)):
         vals = []
-        for slice_idx in [70]:
+        for slice_idx in range(65, 75):
             if side == 0:
                 img = tensor[slice_idx, :, :]
             elif side == 1:
                 img = tensor[:, slice_idx, :]
             else:
                 img = tensor[:, :, slice_idx]
+            if np.sum(img) == 0:
+                continue
             img = matlab.double(img.tolist())
-            vals += [func(img)]
+            val = func(img)
+            if math.isnan(val):
+                continue
+            vals += [val]
         out += vals
     val_avg = sum(out) / len(out)
     #np.save(target+filename+'$'+metric, out)
@@ -296,7 +302,7 @@ def deabbreviate_parcellation_columns(df):
 def read_csv_demog(filename, skip_ids: list=None):
     with open(filename, 'r') as f:
         reader = csv.DictReader(f)
-        fileIDs, time_obs, hit, age, mmse = [], [], [], [], []
+        fileIDs, time_obs, hit, age, mmse, sex = [], [], [], [], [], []
         for r in reader:
             if skip_ids is not None:
                 if r['RID'] in skip_ids:
@@ -305,11 +311,15 @@ def read_csv_demog(filename, skip_ids: list=None):
             time_obs += [float(r['TIMES'])]  # changed to TIMES_ROUNDED. consider switching so observations for progressors are all < 1 year
             hit += [int(float(r['PROGRESSES']))]
             age += [float(r['AGE'])]
+            if 'SEX' in r.keys():
+                sex += [str(r['SEX'])]
+            else:
+                sex += [str(r['PTGENDER_demo'])]
             if 'MMSCORE_mmse' in r.keys():
                 mmse += [float(r['MMSCORE_mmse'])]
             else:
                 mmse += [np.nan if r['MMSE'] == '' else float(r['MMSE'])]
-    return fileIDs, np.asarray(time_obs), np.asarray(hit), age, mmse
+    return fileIDs, np.asarray(time_obs), np.asarray(hit), age, mmse, sex
 
 if __name__ == "__main__":
     csvname = './csvs/merged_dataframe_cox_noqc_pruned_final.csv'

@@ -20,9 +20,9 @@ def CNN(model_name, config, Wrapper, num_exps):
         net = Wrapper(config, model_name, exp_idx)
         # cnn.load('./checkpoint_dir/{}_exp{}/'.format('cnn_mri_pre', 0), fixed=False)
         net.train(epochs = config['train_epochs'], training_prints=2)
-        reports[0].append(net.test(out=True,key='test'))
-        reports[1].append(net.test(out=True,key='train'))
-        reports[2].append(net.test(out=True,key='valid'))
+        reports[0].append(net.test_b(out=True,key='test'))
+        reports[1].append(net.test_b(out=True,key='train'))
+        reports[2].append(net.test_b(out=True,key='valid'))
     ress = [[model_name+'_Test'], [model_name+'_Train'], [model_name+'_Valid']]
 
     for rep, res in zip(reports, ress):
