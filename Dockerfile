@@ -23,6 +23,10 @@ RUN conda env create --name rcgan-env -f env.yml
 
 RUN rm /tmp/env.yml
 
+SHELL ["/bin/bash", "-c"]
+
+RUN source /opt/conda/etc/profile.d/conda.sh
+
 RUN echo "conda activate rcgan-env" > ~/.bashrc
 
 WORKDIR /app
