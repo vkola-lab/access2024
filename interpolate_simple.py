@@ -7,6 +7,7 @@ from typing import Literal
 
 import nibabel as nib
 import numpy as np
+from tqdm import tqdm
 from scipy.interpolate import RegularGridInterpolator
 
 BASEDIR = "/Users/mromano/research/data/rgan_data/"
@@ -67,7 +68,17 @@ def interp_slices(fname: str) -> np.ndarray:
     xg, yg, zg = np.meshgrid(x,y,z, indexing='ij')
     return interp((xg, yg, zg))
 
+def interpolate_and_save_brain(fname: str) -> None:
+    brain = load_brain(fname)
+    interpolated_brain = interp_slices(fname)
+    affine = brain.affine
+    img = nib.Nifti1Image(interpolated_brain, affine)
+    os.makedirs(
+        os.path.join(BASEDIR, 'linear_interpolation'), exist_ok=True
+    )
+    nib.save(img, os.path.join(BASEDIR, 'linear_interpolation', fname + '.nii'))
+
 def interp_all() -> None:
     orig_dir = os.path.join(BASEDIR, 'Z')
-    for fi in os.listdir(orig_dir):
-        print(os.path.join(orig_dir, fi))
+    for fi in tqdm(os.listdir(orig_dir)):
+        interpolate_and_save_brain(fi[:-4])
