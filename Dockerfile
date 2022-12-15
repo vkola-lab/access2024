@@ -27,10 +27,8 @@ SHELL ["/bin/bash", "-c"]
 
 RUN source /opt/conda/etc/profile.d/conda.sh
 
-RUN echo "conda activate rcgan-env" > ~/.bashrc
+RUN echo "conda activate rcgan-env" >> ~/.bashrc
 
 WORKDIR /app
 
 COPY . .
-
-RUN ls -lrt

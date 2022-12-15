@@ -61,8 +61,11 @@ def rescale_from_prev(array, m, t, a) -> tuple:
 
 
 def read_txt(fname: str):
+    """
+    Reads "slice" type files; returns list
+    """
     with open(fname, "r") as fi:
-        return eval(fi.readlines()[0])
+        return eval(fi.readlines())
 
 
 class BrainSample(object):
@@ -91,7 +94,6 @@ class BrainSample(object):
         "Z": "noised",
         "G": "vanilla",
         "CG_1": "novel",
-        "M": "mask",
     }
     idx_rel_path = "slice_list/ADNI"
 
@@ -235,27 +237,6 @@ class BrainSample(object):
         plt.savefig(f_name, dpi=300, transparent=True)
         plt.close()
 
-    def plot_3d(self):
-        raise NotImplementedError
-        cutoff_val = 0.2
-        mask = self.brains["orig"] > cutoff_val
-        # scale colors of the array so they lie between 0 and 1
-        colors = np.where(mask, "#FFD65DC0", "#7A88CCC0")
-        box = bbox(mask)
-        mask = apply_bbox(mask, box)
-        surf_mask = surface_mask(mask)
-        cmap = plt.cm.Greys(surf_mask)
-        cmap[..., -1] = 0.5
-        ax = plt.figure().add_subplot(projection="3d")
-        ax.view_init(elev=30, azim=45, roll=0)
-        ax.grid(False, which="both", axis="both")
-        plt.axis("off")
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_zticks([])
-        ax.voxels(surf_mask, facecolors=cmap)
-        plt.savefig("test.svg")
-
 
 class NiftiBrain:
     """
@@ -313,122 +294,9 @@ class NiftiBrain:
 
     def __subtract__(self, brain):
         assert np.all(brain.affine == self.affine) and np.all(brain.shape == self.shape)
-        return NiftiBrain(self.original_brain - brain.original_brain, self.affine)
-
-
-def generate_mask_dir(basedir="/Users/mromano/research/data/rgan_data/Z"):
-    """
-    generate_mask_dir Thresholds masked brains and saves them in folder
-
-    Thresholds sliced brains and saves them in a new folder, M,
-    in same directory as basedir
-
-
-    Parameters
-    ----------
-    basedir : str, optional
-        _description_, by default '/Users/mromano/research/data/rgan_data/Z'
-    """
-    new_dir = os.path.join(basedir, "..", "M")
-    os.makedirs(new_dir, exist_ok=True)
-    for fi in os.listdir(basedir):
-        brain = NiftiBrain.from_file(basedir, "", fi)
-        mask = np.where(brain.original_brain > 1e-10, 1.0, 0.0)
-        img = nib.Nifti1Image(mask, brain.affine)
-        nib.save(img, os.path.join(new_dir, fi))
-
-
-def bbox(mask_: np.ndarray):
-    """
-    bbox bounding box around max
-
-    function gives x, y, and z bounding box ranges for an nd.array
-
-    Parameters
-    ----------
-    mask_ : np.ndarray
-        binary mask
-
-    Returns
-    -------
-    tuple of len(2) arrays
-        x, y and z min and max for bounding boxes
-    """
-    x, y, z = np.indices(mask_.shape)
-    x_range = [np.min(x[mask_]), np.max(x[mask_])]
-    y_range = [np.min(y[mask_]), np.max(y[mask_])]
-    z_range = [np.min(z[mask_]), np.max(z[mask_])]
-    return x_range, y_range, z_range
-
-
-def feature_scale(XX: np.ndarray):
-    num_ = XX - np.min(XX)
-    denom_ = np.max(XX) - np.min(XX)
-    return num_ / denom_
-
-
-def apply_bbox(XX: np.ndarray, bb: tuple):
-    """
-    apply_bbox applies a bounding box around mask XX
-
-    using a tuple of bounding box indices, clips the image
-    to only those values within the bounding box
-
-    Parameters
-    ----------
-    XX : np.ndarray
-        3-d ndarray to be clipped
-    bb : tuple
-        tuple of len(3) containing
-        len(2) lists containing the beginning and end of the
-        bounding boxes for each dimension
-
-    Returns
-    -------
-    _type_
-        bounded nd.array
-    """
-    XX = XX[bb[0][0] : (bb[0][1] + 1), ...]
-    XX = XX[:, bb[1][0] : (bb[1][1] + 1), :]
-    XX = XX[..., bb[2][0] : (bb[2][1] + 1)]
-    return XX
-
-
-def dist_from_origin(mask_: np.ndarray):
-    raise NotImplementedError
-    # TODO: computes the distance from the origin
-    x, y, z = np.indices(mask_.shape)
-    origin = np.array(mask_.shape) // 2
-    dist = ((x - origin[0]) ** 2 + (y - origin[1]) ** 2 + (z - origin[2]) ** 2) ** (
-        1 / 3
-    )
-    dist = feature_scale(dist)
-    dist[~mask_] = 0
-    return dist
-
-
-# help from https://scikit-image.org/docs/stable/auto_examples/applications/plot_fluorescence_nuclear_envelope.html
-def surface_mask(mask_: np.ndarray):
-    """
-    surface_mask:
-    creates a surface mask of a 3-dimensional volume
-
-
-    Parameters
-    ----------
-    mask_ : np.ndarray
-        3d array mask
-
-    Returns
-    -------
-    np.ndarray
-        masked nd.array
-    """
-    mask_ = np.where(mask_, 1, 0)
-    return np.logical_and(
-        morphology.binary_dilation(mask_), not morphology.binary_erosion(mask_)
-    )
-
+        return NiftiBrain(
+            nib.Nifti1Image(self.original_brain - brain.original_brain, self.affine)
+            )
 
 def plot_slices(
     type_: str = "orig",
@@ -459,32 +327,6 @@ def plot_slices(
     bs.plot_slice(dim="y", type_=type_, num=num_y, caxis=caxis, colorbar=False)
 
 
-def output_shape(input_shape, padding, kernel, stride):
-    """
-    output_shape
-
-    Outputs the resultant shape of a convolutional layer
-
-    Parameters
-    ----------
-    input_shape : list-like
-        shape of input tensor
-    padding : int
-        padding width (assumed to be isometric)
-    kernel : int
-        kernel width (assumed to be isometric)
-    stride : int
-        stride
-
-    Returns
-    -------
-    np.array
-        output shape after a convolutional layer
-    """
-    input_shape = np.array(input_shape)
-    return np.floor(1 + (input_shape + 2 * padding * (kernel - 1) - 1) / stride)
-
-
 if __name__ == "__main__":
     # generate_mask_dir()
     bs = BrainSample()
@@ -497,7 +339,6 @@ if __name__ == "__main__":
     plot_slices("noised")
     plot_slices("novel")
     plot_slices("vanilla")
-    plot_slices("mask")
     bs.plot_slice_diff(
         dim="z", type_bg="vanilla", type_fg="novel", num=-85, caxis=(-1.5, 1.5)
     )
