@@ -55,7 +55,7 @@ def test_missing_slice_values(fname: str) -> None:
         fname (str): filename to test; assumes ADNI dataset
     """
     missing_slices = load_missing_slices(fname, "ADNI")
-    brain = load_brain(fname, type_="M")
+    brain = load_brain(fname, type_="Z")
     data = np.asarray(brain.get_fdata())
     assert np.allclose(data[missing_slices, :, :], 0)
 
@@ -115,7 +115,7 @@ def interp_generator(fname: str) -> tuple[RegularGridInterpolator, list, np.ndar
     z = np.arange(0, shape[2], 1)
     x = np.setdiff1d(np.arange(0, shape[0], 1), missing_slices)
     interp = RegularGridInterpolator(
-        (x, y, z), data[x, :, :], bounds_error=False, fill_value=0, method='slinear'
+        (x, y, z), data[x, :, :], bounds_error=False, fill_value=0, method="slinear"
     )
     return interp, missing_slices, data
 
@@ -133,34 +133,34 @@ def interp_slices(fname: str, dev=False) -> np.ndarray:
     """
     interp, _, data = interp_generator(fname)
     shape = data.shape
-    y = np.arange(0, shape[1], 1).reshape(1,-1,1)
-    z = np.arange(0, shape[2], 1).reshape(1,1,-1)
-    x = np.arange(0, shape[0], 1).reshape(-1,1,1)
+    y = np.arange(0, shape[1], 1).reshape(1, -1, 1)
+    z = np.arange(0, shape[2], 1).reshape(1, 1, -1)
+    x = np.arange(0, shape[0], 1).reshape(-1, 1, 1)
     output = interp((x, y, z))
     if dev:
         xg, yg, zg = np.meshgrid(x, y, z, indexing="ij")
-        assert np.array_equal(output, interp((xg,yg,zg)))
+        assert np.array_equal(output, interp((xg, yg, zg)))
     return output
 
 
-def interpolate_and_save_brain(fname: str) -> None:
+def interpolate_and_save_brain(fname: str, dev=False) -> None:
     """
     Loads a brain from filename fname, interpolates the missing slices using\
         a linear interpolator, and saves the new, interpolated image using
         the same affine coordinates
 
     Args:
-        fname (str): filename to use for loading brain and interpolated brain
+        fname (str): filendfame to use for loading brain and interpolated brain
     """
     brain = load_brain(fname)
-    interpolated_brain = interp_slices(fname)
+    interpolated_brain = interp_slices(fname, dev)
     affine = brain.affine
     img = nib.Nifti1Image(interpolated_brain, affine)
     os.makedirs(os.path.join(BASEDIR, "linear_interpolation"), exist_ok=True)
     nib.save(img, os.path.join(BASEDIR, "linear_interpolation", fname + ".nii"))
 
 
-def interp_all(dev = True) -> None:
+def interp_all(dev=True) -> None:
     """
     Iterates through the missing slice brain directory and generates linearly interpolated brains
     """
@@ -168,7 +168,8 @@ def interp_all(dev = True) -> None:
     for file_ in tqdm(os.listdir(orig_dir)):
         if dev:
             test_missing_slice_values(file_[:-4])
-        interpolate_and_save_brain(file_[:-4])
+        interpolate_and_save_brain(file_[:-4], dev)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     interp_all(True)
