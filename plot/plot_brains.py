@@ -65,7 +65,9 @@ def read_txt(fname: str):
     Reads "slice" type files; returns list
     """
     with open(fname, "r") as fi:
-        return eval(fi.readlines())
+        str_ = fi.readlines()
+        print(str_)
+        return eval(str_[0])
 
 
 class BrainSample(object):
@@ -94,6 +96,7 @@ class BrainSample(object):
         "Z": "noised",
         "G": "vanilla",
         "CG_1": "novel",
+        "linear_interpolation": "linear"
     }
     idx_rel_path = "slice_list/ADNI"
 
@@ -169,7 +172,7 @@ class BrainSample(object):
         slices = []
         for idx in np.arange(5, len(self.idx_missing) - 5, 10):
             curr_slices = []
-            for val in ["orig", "noised", "vanilla", "novel"]:
+            for val in ["orig", "noised", "vanilla", "novel", "linear"]:
                 curr_slices.append(
                     np.squeeze(
                         self.brains[val].original_brain[self.idx_missing[idx], :, :]
@@ -217,7 +220,7 @@ class BrainSample(object):
         ax = plt.subplot(111)
         img = self.brains[type_fg] - self.brains[type_bg]
         plotting.plot_anat(
-            img,
+            img.brain_img,
             axes=ax,
             display_mode=dim,
             cut_coords=[num],
@@ -292,7 +295,7 @@ class NiftiBrain:
         self.brain_img = nib.Nifti1Image(self.original_brain, self.affine)
         return m, t, a
 
-    def __subtract__(self, brain):
+    def __sub__(self, brain):
         assert np.all(brain.affine == self.affine) and np.all(brain.shape == self.shape)
         return NiftiBrain(
             nib.Nifti1Image(self.original_brain - brain.original_brain, self.affine)
@@ -339,6 +342,7 @@ if __name__ == "__main__":
     plot_slices("noised")
     plot_slices("novel")
     plot_slices("vanilla")
+    plot_slices("linear")
     bs.plot_slice_diff(
         dim="z", type_bg="vanilla", type_fg="novel", num=-85, caxis=(-1.5, 1.5)
     )

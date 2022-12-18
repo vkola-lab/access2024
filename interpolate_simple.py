@@ -115,7 +115,7 @@ def interp_generator(fname: str) -> tuple[RegularGridInterpolator, list, np.ndar
     z = np.arange(0, shape[2], 1)
     x = np.setdiff1d(np.arange(0, shape[0], 1), missing_slices)
     interp = RegularGridInterpolator(
-        (x, y, z), data[x, :, :], bounds_error=False, fill_value=0, method="slinear"
+        (x, y, z), data[x, :, :], bounds_error=False, fill_value=0, method="linear"
     )
     return interp, missing_slices, data
 
