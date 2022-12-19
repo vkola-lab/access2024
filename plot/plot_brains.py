@@ -172,7 +172,7 @@ class BrainSample(object):
         slices = []
         for idx in np.arange(5, len(self.idx_missing) - 5, 10):
             curr_slices = []
-            for val in ["orig", "noised", "vanilla", "novel", "linear"]:
+            for val in ["orig", "vanilla", "novel", "linear"]:
                 curr_slices.append(
                     np.squeeze(
                         self.brains[val].original_brain[self.idx_missing[idx], :, :]
@@ -186,6 +186,7 @@ class BrainSample(object):
         ax.axis("off")
         ax.invert_yaxis()
         plt.savefig("figure4.eps", dpi=300)
+        plt.close()
 
     def plot_slice_diff(
         self,
@@ -236,7 +237,6 @@ class BrainSample(object):
             f"{self.output_path}/{self.rid}_{dim}_"
             f"{str(num).zfill(3)}_{type_fg}_minus_{type_bg}.eps"
         )
-        print(ax.properties)
         plt.savefig(f_name, dpi=300, transparent=True)
         plt.close()
 
