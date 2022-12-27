@@ -14,14 +14,31 @@ import nibabel as nib
 import pandas as pd
 
 from torch.utils.data import Dataset
-from utils import read_csv_sp as read_csv, read_csv_cox_ext as read_csv_ext, \
-    rescale, read_csv_pre, read_json, retrieve_kfold_partition, read_csv_demog
+from utils import (
+    read_csv_sp as read_csv,
+    read_csv_cox_ext as read_csv_ext,
+    rescale,
+    read_csv_pre,
+    read_json,
+    retrieve_kfold_partition,
+    read_csv_demog,
+)
 
-SCALE = 1 #rescale to 0~2.5
+SCALE = 1  # rescale to 0~2.5
+
 
 class B_Data(Dataset):
-    #Brain data
-    def __init__(self, data_dir, stage, ratio=(0.8, 0.1, 0.1), seed=1000, step_size=10, external=False, Pre=False):
+    # Brain data
+    def __init__(
+        self,
+        data_dir,
+        stage,
+        ratio=(0.8, 0.1, 0.1),
+        seed=1000,
+        step_size=10,
+        external=False,
+        Pre=False,
+    ):
         random.seed(seed)
 
         self.stage = stage
@@ -29,20 +46,20 @@ class B_Data(Dataset):
         self.step_size = step_size
 
         # self.data_list = glob.glob(data_dir + 'coregistered*nii*')
-        self.data_list = glob.glob(data_dir + '*nii*')
+        self.data_list = glob.glob(data_dir + "*nii*")
 
-        csvname = './csvs/merged_dataframe_cox_noqc_pruned_final.csv'
+        csvname = "./csvs/merged_dataframe_cox_noqc_pruned_final.csv"
         if external:
-            csvname = './csvs/merged_dataframe_cox_test_pruned_final.csv'
+            csvname = "./csvs/merged_dataframe_cox_test_pruned_final.csv"
         elif Pre:
-            csvname = './csvs/merged_dataframe_unused_cox_pruned.csv'
+            csvname = "./csvs/merged_dataframe_unused_cox_pruned.csv"
         csvname = os.path.expanduser(csvname)
         if external:
-            fileIDs, time_hit = read_csv_ext(csvname) #training file
+            fileIDs, time_hit = read_csv_ext(csvname)  # training file
         elif Pre:
-            fileIDs, time_hit = read_csv_pre(csvname) #training file
+            fileIDs, time_hit = read_csv_pre(csvname)  # training file
         else:
-            fileIDs, time_hit = read_csv(csvname) #training file
+            fileIDs, time_hit = read_csv(csvname)  # training file
 
         tmp_f = []
         tmp_h = []
@@ -56,26 +73,28 @@ class B_Data(Dataset):
                     tmp_d.append(d)
                     break
         self.data_list = tmp_d
-        self.time_hit  = tmp_h
-        self.fileIDs   = tmp_f #Note: this only for csv generation not used for data retrival
+        self.time_hit = tmp_h
+        self.fileIDs = (
+            tmp_f  # Note: this only for csv generation not used for data retrival
+        )
 
         # print(len(tmp_f))
         l = len(self.data_list)
-        split1 = int(l*ratio[0])
-        split2 = int(l*(ratio[0]+ratio[1]))
+        split1 = int(l * ratio[0])
+        split2 = int(l * (ratio[0] + ratio[1]))
         idxs = list(range(l))
         random.shuffle(idxs)
-        if 'train' in stage:
+        if "train" in stage:
             self.index_list = idxs[:split1]
-        elif 'valid' in stage:
+        elif "valid" in stage:
             self.index_list = idxs[split1:split2]
-        elif 'test' in stage:
+        elif "test" in stage:
             self.index_list = idxs[split2:]
-        elif 'all' in stage:
+        elif "all" in stage:
             self.index_list = idxs
             # print(len(self.index_list))
         else:
-            raise Exception('Unexpected Stage for Vit_Data!')
+            raise Exception("Unexpected Stage for Vit_Data!")
         # print(len(self.index_list))
         # print((self.fileIDs[:10]))
         # sys.exit()
@@ -98,11 +117,11 @@ class B_Data(Dataset):
 
         g_data = copy.deepcopy(data)
         # randomly remove information
-        
+
         # g_data[:,::self.step_size] = 0
         indices = list(range(g_data.shape[1]))
         random.shuffle(indices)
-        g_data[:, indices[:self.step_size]] = 0
+        g_data[:, indices[: self.step_size]] = 0
         # print('g', g_data[:, :, 80, 80])
         # sys.exit()
 
@@ -114,33 +133,42 @@ class B_Data(Dataset):
         counts = [self.time_hit.count(i) for i in range(num_classes)]
         count = len(self.time_hit)
         weights = [count / counts[i] for i in self.time_hit]
-        class_weights = [count/c for c in counts]
+        class_weights = [count / c for c in counts]
         return weights, class_weights
 
+
 class B_IQ_Data(Dataset):
-    #Brain data
-    def __init__(self, data_dir, stage, ratio=(0.8, 0.1, 0.1), seed=1000, step_size=10, external=False):
+    # Brain data
+    def __init__(
+        self,
+        data_dir,
+        stage,
+        ratio=(0.8, 0.1, 0.1),
+        seed=1000,
+        step_size=10,
+        external=False,
+    ):
         random.seed(seed)
 
         self.stage = stage
-        self.names=['T', 'Z', 'G', 'CG_1']
+        self.names = ["T", "Z", "G", "CG_1"]
         if external:
-            self.names = [n+'_E' for n in self.names]
-        self.names = [n+'/' for n in self.names]
+            self.names = [n + "_E" for n in self.names]
+        self.names = [n + "/" for n in self.names]
         self.step_size = step_size
 
         # self.data_list = glob.glob(data_dir + 'coregistered*nii*')
         self.data_dir = data_dir
-        self.data_list = glob.glob(data_dir+self.names[0] + '*nii*')
+        self.data_list = glob.glob(data_dir + self.names[0] + "*nii*")
 
-        csvname = './csvs/merged_dataframe_cox_noqc_pruned_final.csv'
+        csvname = "./csvs/merged_dataframe_cox_noqc_pruned_final.csv"
         if external:
-            csvname = './csvs/merged_dataframe_cox_test_pruned_final.csv'
+            csvname = "./csvs/merged_dataframe_cox_test_pruned_final.csv"
         csvname = os.path.expanduser(csvname)
         if external:
-            fileIDs, time_hit = read_csv_ext(csvname) #training file
+            fileIDs, time_hit = read_csv_ext(csvname)  # training file
         else:
-            fileIDs, time_hit = read_csv(csvname) #training file
+            fileIDs, time_hit = read_csv(csvname)  # training file
 
         tmp_f = []
         tmp_h = []
@@ -154,25 +182,27 @@ class B_IQ_Data(Dataset):
                     tmp_d.append(d)
                     break
         self.data_list = tmp_d
-        self.time_hit  = tmp_h
-        self.fileIDs   = tmp_f #Note: this only for csv generation not used for data retrival
+        self.time_hit = tmp_h
+        self.fileIDs = (
+            tmp_f  # Note: this only for csv generation not used for data retrival
+        )
 
         # print(len(tmp_f))
         l = len(self.data_list)
-        split1 = int(l*ratio[0])
-        split2 = int(l*(ratio[0]+ratio[1]))
+        split1 = int(l * ratio[0])
+        split2 = int(l * (ratio[0] + ratio[1]))
         idxs = list(range(len(fileIDs)))
         random.shuffle(idxs)
-        if 'train' in stage:
+        if "train" in stage:
             self.index_list = idxs[:split1]
-        elif 'valid' in stage:
+        elif "valid" in stage:
             self.index_list = idxs[split1:split2]
-        elif 'test' in stage:
+        elif "test" in stage:
             self.index_list = idxs[split2:]
-        elif 'all' in stage:
+        elif "all" in stage:
             self.index_list = idxs
         else:
-            raise Exception('Unexpected Stage for Vit_Data!')
+            raise Exception("Unexpected Stage for Vit_Data!")
         # print(len(self.index_list))
         # print((self.fileIDs[:10]))
         # sys.exit()
@@ -186,11 +216,11 @@ class B_IQ_Data(Dataset):
         datas = []
         datas_name = []
         for n in self.names:
-            filename = self.data_list[idx].replace(self.names[0],n)
+            filename = self.data_list[idx].replace(self.names[0], n)
 
             data = nib.load(filename).get_fdata().astype(np.float32)
             data[data != data] = 0
-            SCALE=0
+            SCALE = 0
             if SCALE:
                 data = rescale(data, (0, 2.5))
                 if 0:
@@ -208,70 +238,105 @@ def random_partition(idxs, stage, ratio=(0.6, 0.2, 0.2)):
     if type(idxs) == int:
         idxs = list(range(idxs))
     l = len(idxs)
-    split1 = int(l*ratio[0])
-    split2 = int(l*(ratio[0]+ratio[1]))
+    split1 = int(l * ratio[0])
+    split2 = int(l * (ratio[0] + ratio[1]))
     random.shuffle(idxs)
-    if 'train' in stage:
+    if "train" in stage:
         index_list = idxs[:split1]
-    elif 'valid' in stage:
+    elif "valid" in stage:
         index_list = idxs[split1:split2]
-    elif 'test' in stage:
+    elif "test" in stage:
         index_list = idxs[split2:]
-    elif 'all' in stage:
+    elif "all" in stage:
         index_list = idxs
     else:
-        raise ValueError(f'Unexpected Stage: {stage}!')
+        raise ValueError(f"Unexpected Stage: {stage}!")
     return index_list
 
+
 class ParcellationDataBinary(Dataset):
-    def __init__(self, exp_idx, stage='train', dataset='ADNI', ratio=(0.6, 0.2, 0.2), add_age=False,
-                 add_mmse=False, add_sex=False, partitioner=retrieve_kfold_partition):
+    def __init__(
+        self,
+        exp_idx,
+        stage="train",
+        dataset="ADNI",
+        ratio=(0.8, 0.1, 0.1),
+        add_age=False,
+        add_mmse=False,
+        add_sex=False,
+    ):
         self.exp_idx = exp_idx
         self.ratio = ratio  # ratios for train/valid/test
         self.stage = stage  # train, validate, or test
-        self.partitioner = partitioner  # method of splitting data i.e. stratified, kfold, etc
-        json_props = read_json('./mlp_config.json')
-        self.csv_directory = json_props['datadir']
-        self.csvname = self.csv_directory + json_props['metadata_fi'][dataset]
+        json_props = read_json("./mlp_config.json")
+        self.csv_directory = json_props["datadir"]
+        self.csvname = self.csv_directory + json_props["metadata_fi"][dataset]
         self.parcellation_file = pd.read_csv(
-            self.csv_directory + json_props['parcellation_fi'], dtype={'RID': str})
-        self.parcellation_file = self.parcellation_file.query(
-            'Dataset == @dataset').drop(columns=['Dataset', 'PROGRESSION_CATEGORY']).copy()  # query the parcellations
-        self.rids, self.time_obs, self.hit, self.age, self.mmse, self.sex = \
-            read_csv_demog(self.csvname)
-        self.parcellation_file['RID'] = self.parcellation_file['RID'].apply(
-                lambda x: x.zfill(4)
+            self.csv_directory + json_props["parcellation_fi"], dtype={"RID": str}
         )
-        self.parcellation_file.set_index('RID', inplace=True)
-        self.parcellation_file = self.parcellation_file.loc[self.rids,:].reset_index(
-                drop=True)  # sort by RID
+        self.parcellation_file = (
+            self.parcellation_file.query("Dataset == @dataset")
+            .drop(columns=["Dataset", "PROGRESSION_CATEGORY"])
+            .copy()
+        )  # query the parcellations
+        (
+            self.rids,
+            self.time_obs,
+            self.hit,
+            self.age,
+            self.mmse,
+            self.sex,
+        ) = read_csv_demog(self.csvname)
+        self.parcellation_file["RID"] = self.parcellation_file["RID"].apply(
+            lambda x: x.zfill(4)
+        )
+        self.parcellation_file.set_index("RID", inplace=True)
+        self.parcellation_file = self.parcellation_file.loc[self.rids, :].reset_index(
+            drop=True
+        )  # sort by RID
         if add_age:
-            self.parcellation_file['age'] = self.age
+            self.parcellation_file["age"] = self.age
         if add_mmse:
-            self.parcellation_file['mmse'] = self.mmse
+            self.parcellation_file["mmse"] = self.mmse
         if add_sex:
-            self.parcellation_file['sex'] = self.sex
+            self.parcellation_file["sex"] = self.sex
         self._cutoff(36.0)
+        l = len(self.rids)
+        split1 = int(l * ratio[0])
+        split2 = int(l * (ratio[0] + ratio[1]))
+        idxs = list(range(l))
+        random.shuffle(idxs)
+        if "train" in stage:
+            self.index_list = idxs[:split1]
+        elif "valid" in stage:
+            self.index_list = idxs[split1:split2]
+        elif "test" in stage:
+            self.index_list = idxs[split2:]
+        elif "all" in stage:
+            self.index_list = idxs
+            # print(len(self.index_list))
+        else:
+            raise Exception("Unexpected Stage for MLP_Data!")
         self._prep_data(self.parcellation_file)
 
     def _cutoff(self, n_months: float):
-        valid_datapoints = [t > n_months or y == 1 for t,y in zip(self.time_obs, self.hit)]
+        valid_datapoints = [
+            t > n_months or y == 1 for t, y in zip(self.time_obs, self.hit)
+        ]
         self.rids = np.array(self.rids)[valid_datapoints]
         self.hit = np.array(self.hit)[valid_datapoints]
         self.time_obs = np.array(self.time_obs)[valid_datapoints]
-        self.parcellation_file = self.parcellation_file.loc[valid_datapoints,:]
-        self.PMCI = np.array([t <= n_months and y == 1 for t,y in zip(self.time_obs, self.hit)])
-        self.PMCI = np.where(self.PMCI,1,0)
+        self.parcellation_file = self.parcellation_file.loc[valid_datapoints, :]
+        self.PMCI = np.array(
+            [t <= n_months and y == 1 for t, y in zip(self.time_obs, self.hit)]
+        )
+        self.PMCI = np.where(self.PMCI, 1, 0)
 
     def _prep_data(self, feature_df):
-        idxs = list(range(len(self.rids)))
-        self.index_list = self.partitioner(idxs, stage=self.stage, exp_idx=self.exp_idx)  # partition the data
         self.rid = np.array(self.rids)
-        feature_df.drop(columns=["CSF",
-                        "3thVen",
-                        "4thVen",
-                        "InfLatVen",
-                        "LatVen"], inplace=True)  # drop ventricles
+        feature_df.drop(
+            columns=["CSF", "3thVen", "4thVen", "InfLatVen", "LatVen"], inplace=True
+        )  # drop ventricles
         self.labels = feature_df.columns
         self.data = feature_df.to_numpy()
 
@@ -290,7 +355,7 @@ class ParcellationDataBinary(Dataset):
 
     def get_data(self):
         return self.data
-    
+
     def get_labels(self):
         return self.PMCI
 
@@ -303,9 +368,23 @@ if __name__ == "__main__":
     # for _ in external_data:
     #     print()
     #     sys.exit()
-    external_data = ParcellationDataBinary(1, stage='all', dataset='ADNI', ratio=(0.6, 0.2, 0.2), add_age=False,
-                 add_mmse=False, partitioner=retrieve_kfold_partition)
+    external_data = ParcellationDataBinary(
+        1,
+        stage="all",
+        dataset="ADNI",
+        ratio=(0.6, 0.2, 0.2),
+        add_age=False,
+        add_mmse=False,
+        partitioner=retrieve_kfold_partition,
+    )
     print(len(external_data))
-    external_data = ParcellationDataBinary(1, stage='all', dataset='NACC', ratio=(0.6, 0.2, 0.2), add_age=False,
-                 add_mmse=False, partitioner=retrieve_kfold_partition)
+    external_data = ParcellationDataBinary(
+        1,
+        stage="all",
+        dataset="NACC",
+        ratio=(0.6, 0.2, 0.2),
+        add_age=False,
+        add_mmse=False,
+        partitioner=retrieve_kfold_partition,
+    )
     print(len(external_data))
