@@ -261,6 +261,7 @@ class ParcellationDataBinary(Dataset):
         stage="train",
         dataset="ADNI",
         ratio=(0.8, 0.1, 0.1),
+        seed=1000,
         add_age=False,
         add_mmse=False,
         add_sex=False,
@@ -301,6 +302,7 @@ class ParcellationDataBinary(Dataset):
         if add_sex:
             self.parcellation_file["sex"] = self.sex
         self._cutoff(36.0)
+        random.seed(seed)
         l = len(self.rids)
         split1 = int(l * ratio[0])
         split2 = int(l * (ratio[0] + ratio[1]))
