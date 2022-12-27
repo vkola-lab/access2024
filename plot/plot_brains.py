@@ -1,7 +1,9 @@
 import os
+import re
 import nibabel as nib
 import matplotlib.pyplot as plt
 import numpy as np
+from tqdm import tqdm
 from nilearn import plotting
 from skimage import morphology
 
@@ -66,7 +68,6 @@ def read_txt(fname: str):
     """
     with open(fname, "r") as fi:
         str_ = fi.readlines()
-        print(str_)
         return eval(str_[0])
 
 
@@ -96,7 +97,7 @@ class BrainSample(object):
         "Z": "noised",
         "G": "vanilla",
         "CG_1": "novel",
-        "linear_interpolation": "linear"
+        "linear_interpolation": "linear",
     }
     idx_rel_path = "slice_list/ADNI"
 
@@ -157,13 +158,13 @@ class BrainSample(object):
         )
         f_name = (
             f"{self.output_path}/{self.rid}_{dim}_"
-            f"{str(num).zfill(3)}_{type_}_colorbar_{str(colorbar)}.eps"
+            f"{str(num).zfill(3)}_{type_}_colorbar_{str(colorbar)}.png"
         )
         plt.subplots_adjust(0, 0, 1, 1, 0, 0)
         plt.savefig(f_name, dpi=300, transparent=True)
         plt.close()
 
-    def plot_missing_montage(self):
+    def plot_missing_montage(self, output_fi: str = "figure4.eps"):
         """
         plot_missing_montage _summary_
 
@@ -185,7 +186,7 @@ class BrainSample(object):
         ax = plt.gca()
         ax.axis("off")
         ax.invert_yaxis()
-        plt.savefig("figure4.eps", dpi=300)
+        plt.savefig(output_fi, dpi=300)
         plt.close()
 
     def plot_slice_diff(
@@ -299,7 +300,8 @@ class NiftiBrain:
         assert np.all(brain.affine == self.affine) and np.all(brain.shape == self.shape)
         return NiftiBrain(
             nib.Nifti1Image(self.original_brain - brain.original_brain, self.affine)
-            )
+        )
+
 
 def plot_slices(
     type_: str = "orig",
@@ -330,6 +332,19 @@ def plot_slices(
     bs.plot_slice(dim="y", type_=type_, num=num_y, caxis=caxis, colorbar=False)
 
 
+def plot_sample_slices_all():
+    files = os.listdir("/Users/mromano/research/data/rgan_data/Z")
+    rids = list(map(lambda x: re.sub("masked_brain_mri_", "", x)[:-4], files))
+    for rid in tqdm(rids):
+        bs_ = BrainSample(rid=rid)
+        # bs_.plot_missing_montage(
+        #     output_fi=f"/Users/mromano/research/data/img/sample_slices_{rid}_z.png"
+        # )
+        bs_.plot_slice(
+            type_="linear",
+        )
+
+
 if __name__ == "__main__":
     # generate_mask_dir()
     bs = BrainSample()
@@ -346,3 +361,4 @@ if __name__ == "__main__":
     bs.plot_slice_diff(
         dim="z", type_bg="vanilla", type_fg="novel", num=-85, caxis=(-1.5, 1.5)
     )
+    plot_sample_slices_all()
