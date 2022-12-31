@@ -9,6 +9,8 @@ import torch.optim as optim
 from typing import Dict
 import tabulate
 import os
+import matplotlib.pyplot as plt
+from torchviz import make_dot
 from sklearn.metrics import classification_report
 import numpy as np
 import pandas as pd
@@ -132,7 +134,7 @@ class MLP_Wrapper:
         self.optimal_path = "{}{}_{}.pth".format(
             self.checkpoint_dir, self.model_name, self.optimal_epoch
         )
-        print("Location: ".format(self.optimal_path))
+        print("Location: {}".format(self.optimal_path))
         return self.optimal_valid_metric
 
     def train_model_epoch(self, optimizer):
@@ -143,6 +145,16 @@ class MLP_Wrapper:
             loss = self.criterion(
                 preds.squeeze(), pmci.to(self.device).float().squeeze()
             )
+            if self.epoch == 0:
+                graph = make_dot(
+                    loss,
+                    params=dict(self.model.named_parameters()),
+                    show_attrs=True,
+                    show_saved=True,
+                )
+                graph.render("mlp_graph.png")
+                plt.close()
+
             loss.backward()
             optimizer.step()
 
@@ -175,7 +187,7 @@ class MLP_Wrapper:
             self.model.eval()
             for data, pmci, rids in dataloader:
                 preds = self.model(data.to(self.device).float()).to("cpu")
-                rids = rids
+                rids = rids.numpy()
             return preds, pmci, rids
 
     def test_surv_data_optimal_epoch(self, external_data=False, fold="all"):
@@ -188,7 +200,7 @@ class MLP_Wrapper:
             y_pred=preds,
             target_names=[key + fold + "_0", key + fold + "_1"],
             labels=[0, 1],
-            zero_division="warn",
+            zero_division=1,
             output_dict=True,
         )
         f = open(
@@ -197,8 +209,8 @@ class MLP_Wrapper:
         )
         write_raw_score(f, preds_raw, pmci)
         with open(f"rids/mlp_{self.seed}.txt", "w") as fi:
-            for rid in rids:
-                fi.write(rid + ",\n")
+            for rid, pred in zip(rids, preds):
+                fi.write(str(rid) + "," + str(pred) + "\n")
         return report
 
 

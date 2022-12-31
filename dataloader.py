@@ -288,6 +288,18 @@ class ParcellationDataBinary(Dataset):
             self.mmse,
             self.sex,
         ) = read_csv_demog(self.csvname)
+        if dataset == "ADNI":
+            data_order = glob.glob(
+                "/data2/MRI_PET_DATA/processed_images_final_cox_noqc/brain_stripped_cox_noqc/"
+                + "*nii*"
+            )
+        else:
+            data_order = glob.glob(
+                "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
+                + "*nii*"
+            )
+        rid_order = filter_rid(data_order)
+        raise NotImplementedError
         self.parcellation_file["RID"] = self.parcellation_file["RID"].apply(
             lambda x: x.zfill(4)
         )
@@ -351,7 +363,7 @@ class ParcellationDataBinary(Dataset):
         x = self.data[idx_transformed]
         pmci = self.PMCI[idx_transformed]
         rid = self.rid[idx_transformed]
-        return x, pmci, rid
+        return x, pmci, idx_transformed
 
     def get_features(self):
         return self.labels
@@ -361,6 +373,11 @@ class ParcellationDataBinary(Dataset):
 
     def get_labels(self):
         return self.PMCI
+
+
+def filter_rid(file_list: list) -> list:
+    rid_extract = lambda x: x.split("masked_brain_mri_")[1].split(".nii")[0]
+    return list(map(rid_extract, file_list))
 
 
 if __name__ == "__main__":
