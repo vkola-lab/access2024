@@ -2441,7 +2441,7 @@ class MLP_Wrapper:
 
     def test_surv_data_optimal_epoch(self, external_data=False, fold="all"):
         key = ["ADNI" if not external_data else "NACC"][0]
-        preds, pmci, _ = self.retrieve_testing_data(external_data, fold)
+        preds, pmci, rids = self.retrieve_testing_data(external_data, fold)
         preds_raw = preds.squeeze()
         preds = torch.round(preds).squeeze()
         report = classification_report(
@@ -2458,6 +2458,8 @@ class MLP_Wrapper:
             "w",
         )
         write_raw_score(f, preds_raw, pmci)
+        with open(f'rids/mlp_rids/mlp_{self.seed}.txt', 'w') as fi:
+            fi.write(rids)
         return report
 
 
