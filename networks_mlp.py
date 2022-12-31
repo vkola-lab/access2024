@@ -2,11 +2,16 @@ from dataloader import ParcellationDataBinary
 from models import _MLP_Surv
 from utils import write_raw_score
 from torch.utils.data import DataLoader
-
-import os
+from torch.utils.tensorboard import SummaryWriter
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from typing import Dict
+import tabulate
+import os
+from sklearn.metrics import classification_report
+import numpy as np
+import pandas as pd
 
 torch.set_num_threads(
     1
@@ -48,7 +53,9 @@ class MLP_Wrapper:
         self.model.to(self.device)
 
     def prepare_dataloader(self):
-        kwargs = dict(exp_idx=self.exp_idx, add_age=self._age, add_mmse=self._mmse)
+        kwargs = dict(
+            exp_idx=self.exp_idx, seed=self.seed, add_age=self._age, add_mmse=self._mmse
+        )
         self.train_data = self.dataset(stage="train", dataset="ADNI", **kwargs)
         self.features = self.train_data.get_features()
         self.in_size = len(self.features)
@@ -73,14 +80,18 @@ class MLP_Wrapper:
         )
 
     def load(self):
-        for _, _, Files in os.walk(self.checkpoint_dir):
-            for File in Files:
-                if File.endswith(".pth"):
+        state = None
+        for _, _, files in os.walk(self.checkpoint_dir):
+            for file in files:
+                if file.endswith(".pth"):
                     try:
-                        state = torch.load(self.checkpoint_dir + File)
-                    except:
-                        raise FileNotFoundError(self.checkpoint_dir + File)
-        self.model.load_state_dict(state)
+                        state = torch.load(self.checkpoint_dir + file)
+                    except Exception as exc:
+                        raise FileNotFoundError(self.checkpoint_dir + file) from exc
+        if state is not None:
+            self.model.load_state_dict(state)
+        else:
+            raise FileNotFoundError(self.checkpoint_dir)
 
     def save_checkpoint(self, loss):
         score = loss
@@ -112,21 +123,12 @@ class MLP_Wrapper:
             betas=(0.5, 0.999),
             weight_decay=self.weight_decay,
         )
+        writer = SummaryWriter()
         for self.epoch in range(epochs):
             self.train_model_epoch(self.optimizer)
             val_loss = self.valid_model_epoch()
             self.save_checkpoint(val_loss)
-            if self.epoch % 300 == 0:
-                print(
-                    "{}: {}th epoch validation score: {}".format(
-                        self.model_name, self.epoch, val_loss
-                    )
-                )
-        print(
-            "Best model saved at the {}th epoch; cox-based loss: {}".format(
-                self.optimal_epoch, self.optimal_valid_metric
-            )
-        )
+            writer.add_scalar("Loss/validate", val_loss.item(), self.epoch)
         self.optimal_path = "{}{}_{}.pth".format(
             self.checkpoint_dir, self.model_name, self.optimal_epoch
         )
@@ -166,6 +168,8 @@ class MLP_Wrapper:
                 dataloader = self.test_dataloader
             elif fold == "train":
                 dataloader = self.train_dataloader
+            else:
+                raise ValueError(f"Invalid fold specified: {fold}")
         with torch.no_grad():
             self.load()
             self.model.eval()
@@ -175,7 +179,7 @@ class MLP_Wrapper:
             return preds, pmci, rids
 
     def test_surv_data_optimal_epoch(self, external_data=False, fold="all"):
-        key = ["ADNI" if not external_data else "NACC"][0]
+        key = "ADNI" if not external_data else "NACC"
         preds, pmci, rids = self.retrieve_testing_data(external_data, fold)
         preds_raw = preds.squeeze()
         preds = torch.round(preds).squeeze()
@@ -184,21 +188,21 @@ class MLP_Wrapper:
             y_pred=preds,
             target_names=[key + fold + "_0", key + fold + "_1"],
             labels=[0, 1],
-            zero_division=0,
+            zero_division="warn",
             output_dict=True,
         )
         f = open(
-            self.checkpoint_dir
-            + "raw_score_{}_{}_{}.txt".format(key, self.exp_idx, fold),
+            self.checkpoint_dir + f"raw_score_{key}_{self.exp_idx}_{fold}.txt",
             "w",
         )
         write_raw_score(f, preds_raw, pmci)
-        with open(f"rids/mlp_rids/mlp_{self.seed}.txt", "w") as fi:
-            fi.write(rids)
+        with open(f"rids/mlp_{self.seed}.txt", "w") as fi:
+            for rid in rids:
+                fi.write(rid + ",\n")
         return report
 
 
-def run(load=True):
+def run(load: bool = True) -> Dict[str, list]:
     mlp_list = []
     mlp_output = {"NACCall": [], "ADNItrain": [], "ADNIvalid": [], "ADNItest": []}
     for exp in range(5):
@@ -232,7 +236,7 @@ def run(load=True):
     return mlp_output
 
 
-def tabulate_report(report, dataset):
+def tabulate_report(report: dict, dataset: str) -> Dict[str, list]:
     report = report[dataset]
     label1 = f"{dataset}_1"
     label0 = f"{dataset}_0"
@@ -261,8 +265,8 @@ def tabulate_report(report, dataset):
     return value_list
 
 
-def run_and_tabulate(force):
-    g = run(force)
+def run_and_tabulate(load) -> None:
+    g = run(load)
     for fold in ["train", "valid", "test"]:
         tabulate_report(g, "ADNI" + fold)
     tabulate_report(g, "NACCall")
