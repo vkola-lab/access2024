@@ -2293,7 +2293,7 @@ class MLP_Wrapper:
     ):
         self._age = add_age
         self._mmse = add_mmse
-        self.seed = exp_idx
+        self.seed = exp_idx * 100
         self.exp_idx = exp_idx
         self.model_name = model_name
         self.device = device

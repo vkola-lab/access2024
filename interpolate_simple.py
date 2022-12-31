@@ -164,8 +164,15 @@ def interpolate_and_save_brain(
     interpolated_brain = interp_slices(fname, ds_=ds_, dev=dev)
     affine = brain.affine
     img = nib.Nifti1Image(interpolated_brain, affine)
-    os.makedirs(os.path.join(BASEDIR, "linear_interpolation"), exist_ok=True)
-    nib.save(img, os.path.join(BASEDIR, "linear_interpolation", fname + ".nii"))
+    output_dir = os.path.join(BASEDIR, "linear_interpolation", fname + ".nii")
+    dump_brain(img, output_dir)
+
+
+def dump_brain(img: nib.Nifti1Image, output_dir: str) -> None:
+    if os.path.exists(output_dir):
+        img = nib.load(output_dir)
+
+    nib.save(img, output_dir)
 
 
 def interp_all(external: bool = False, dev: bool = True) -> None:
@@ -182,4 +189,4 @@ def interp_all(external: bool = False, dev: bool = True) -> None:
 
 
 if __name__ == "__main__":
-    interp_all(True, True)
+    interp_all(False, True)

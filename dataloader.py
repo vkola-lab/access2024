@@ -302,6 +302,7 @@ class ParcellationDataBinary(Dataset):
         if add_sex:
             self.parcellation_file["sex"] = self.sex
         self._cutoff(36.0)
+
         random.seed(seed)
         l = len(self.rids)
         split1 = int(l * ratio[0])
@@ -374,19 +375,17 @@ if __name__ == "__main__":
         1,
         stage="all",
         dataset="ADNI",
-        ratio=(0.6, 0.2, 0.2),
+        ratio=(0.8, 0.1, 0.1),
         add_age=False,
         add_mmse=False,
-        partitioner=retrieve_kfold_partition,
     )
     print(len(external_data))
     external_data = ParcellationDataBinary(
         1,
         stage="all",
         dataset="NACC",
-        ratio=(0.6, 0.2, 0.2),
+        ratio=(0.8, 0.1, 0.1),
         add_age=False,
         add_mmse=False,
-        partitioner=retrieve_kfold_partition,
     )
     print(len(external_data))
