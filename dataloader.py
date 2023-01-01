@@ -243,6 +243,7 @@ class ParcellationDataBinary(Dataset):
         add_mmse=False,
         add_sex=False,
     ):
+        random.seed(seed)
         self.exp_idx = exp_idx
         self.ratio = ratio  # ratios for train/valid/test
         self.stage = stage  # train, validate, or test
@@ -266,16 +267,12 @@ class ParcellationDataBinary(Dataset):
             self.sex,
         ) = read_csv_demog(self.csvname)
         if dataset == "ADNI":
-            data_order = glob.glob(
-                "/data2/MRI_PET_DATA/processed_images_final_cox_noqc/brain_stripped_cox_noqc/"
-                + "*nii*"
-            )
+            data_order = glob.glob("/data1/RGAN_Data/Z/" + "*nii*")
         else:
-            data_order = glob.glob(
-                "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
-                + "*nii*"
-            )
+            data_order = glob.glob("/data1/RGAN_Data/Z_E/" + "*nii*")
+
         rid_order = filter_rid(data_order)
+
         self.parcellation_file["RID"] = self.parcellation_file["RID"].apply(
             lambda x: x.zfill(4)
         )
@@ -299,7 +296,6 @@ class ParcellationDataBinary(Dataset):
 
         self._cutoff(36.0)
 
-        random.seed(seed)
         l = len(self.rids)
         split1 = int(l * ratio[0])
         split2 = int(l * (ratio[0] + ratio[1]))
@@ -362,6 +358,18 @@ class ParcellationDataBinary(Dataset):
 def filter_rid(file_list: list) -> list:
     rid_extract = lambda x: x.split("masked_brain_mri_")[1].split(".nii")[0]
     return list(map(rid_extract, file_list))
+
+
+def test_rid_orders(seed: int):
+    with open(f"rids/ADNI/test{seed}.txt", "r") as fi:
+        fi_ = eval(fi.readlines()[0])
+    rids_x = filter_rid(fi_)
+
+    with open(f"rids/mlp_ADNI_test_{seed}.txt", "r") as fi:
+        fi_ = fi.readlines()
+    fi_ = list(map(lambda x: x.split(",")[0], fi_))
+    assert all([x == y for x, y in zip(rids_x, fi_)])
+    return True
 
 
 if __name__ == "__main__":
