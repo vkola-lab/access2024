@@ -135,6 +135,7 @@ class MLP_Wrapper:
             self.checkpoint_dir, self.model_name, self.optimal_epoch
         )
         print("Location: {}".format(self.optimal_path))
+        print(self.optimal_valid_metric)
         return self.optimal_valid_metric
 
     def train_model_epoch(self, optimizer):
@@ -152,7 +153,7 @@ class MLP_Wrapper:
                     show_attrs=True,
                     show_saved=True,
                 )
-                graph.render("mlp_graph.png")
+                graph.render("mlp_graph")
                 plt.close()
 
             loss.backward()
@@ -187,7 +188,7 @@ class MLP_Wrapper:
             self.model.eval()
             for data, pmci, rids in dataloader:
                 preds = self.model(data.to(self.device).float()).to("cpu")
-                rids = rids.numpy()
+                rids = rids
             return preds, pmci, rids
 
     def test_surv_data_optimal_epoch(self, external_data=False, fold="all"):
@@ -208,7 +209,7 @@ class MLP_Wrapper:
             "w",
         )
         write_raw_score(f, preds_raw, pmci)
-        with open(f"rids/mlp_{self.seed}.txt", "w") as fi:
+        with open(f"rids/mlp_{key}_{fold}_{self.seed}.txt", "w") as fi:
             for rid, pred in zip(rids, preds):
                 fi.write(str(rid) + "," + str(pred) + "\n")
         return report

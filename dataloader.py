@@ -203,9 +203,6 @@ class B_IQ_Data(Dataset):
             self.index_list = idxs
         else:
             raise Exception("Unexpected Stage for Vit_Data!")
-        # print(len(self.index_list))
-        # print((self.fileIDs[:10]))
-        # sys.exit()
 
     def __len__(self):
         return len(self.index_list)
@@ -232,26 +229,6 @@ class B_IQ_Data(Dataset):
         # print(len(datas))
         # print(datas[0].shape)
         return datas, datas_name
-
-
-def random_partition(idxs, stage, ratio=(0.6, 0.2, 0.2)):
-    if type(idxs) == int:
-        idxs = list(range(idxs))
-    l = len(idxs)
-    split1 = int(l * ratio[0])
-    split2 = int(l * (ratio[0] + ratio[1]))
-    random.shuffle(idxs)
-    if "train" in stage:
-        index_list = idxs[:split1]
-    elif "valid" in stage:
-        index_list = idxs[split1:split2]
-    elif "test" in stage:
-        index_list = idxs[split2:]
-    elif "all" in stage:
-        index_list = idxs
-    else:
-        raise ValueError(f"Unexpected Stage: {stage}!")
-    return index_list
 
 
 class ParcellationDataBinary(Dataset):
@@ -299,20 +276,27 @@ class ParcellationDataBinary(Dataset):
                 + "*nii*"
             )
         rid_order = filter_rid(data_order)
-        raise NotImplementedError
         self.parcellation_file["RID"] = self.parcellation_file["RID"].apply(
             lambda x: x.zfill(4)
         )
         self.parcellation_file.set_index("RID", inplace=True)
-        self.parcellation_file = self.parcellation_file.loc[self.rids, :].reset_index(
+
+        idx_map = [self.rids.index(x) for x in rid_order]
+
+        self.parcellation_file = self.parcellation_file.loc[rid_order, :].reset_index(
             drop=True
         )  # sort by RID
+        self.rids = np.asarray(self.rids)[idx_map]
+        self.time_obs = np.asarray(self.time_obs)[idx_map]
+        self.hit = np.asarray(self.hit)[idx_map]
+
         if add_age:
-            self.parcellation_file["age"] = self.age
+            self.parcellation_file["age"] = np.asarray(self.age)[idx_map]
         if add_mmse:
-            self.parcellation_file["mmse"] = self.mmse
+            self.parcellation_file["mmse"] = np.asarray(self.mmse)[idx_map]
         if add_sex:
-            self.parcellation_file["sex"] = self.sex
+            self.parcellation_file["sex"] = np.asarray(self.sex)[idx_map]
+
         self._cutoff(36.0)
 
         random.seed(seed)
@@ -338,9 +322,9 @@ class ParcellationDataBinary(Dataset):
         valid_datapoints = [
             t > n_months or y == 1 for t, y in zip(self.time_obs, self.hit)
         ]
-        self.rids = np.array(self.rids)[valid_datapoints]
-        self.hit = np.array(self.hit)[valid_datapoints]
-        self.time_obs = np.array(self.time_obs)[valid_datapoints]
+        self.rids = self.rids[valid_datapoints]
+        self.hit = self.hit[valid_datapoints]
+        self.time_obs = self.time_obs[valid_datapoints]
         self.parcellation_file = self.parcellation_file.loc[valid_datapoints, :]
         self.PMCI = np.array(
             [t <= n_months and y == 1 for t, y in zip(self.time_obs, self.hit)]
@@ -363,7 +347,7 @@ class ParcellationDataBinary(Dataset):
         x = self.data[idx_transformed]
         pmci = self.PMCI[idx_transformed]
         rid = self.rid[idx_transformed]
-        return x, pmci, idx_transformed
+        return x, pmci, rid
 
     def get_features(self):
         return self.labels
