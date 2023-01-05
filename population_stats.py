@@ -1,12 +1,5 @@
-from dataloader import ParcellationDataBinary, retrieve_kfold_partition, Dataset
-from tabulate import tabulate
-from torch.utils.data import DataLoader
-import pandas as pd
-import numpy as np
-
-"""
-Split up data into progress vs non-progress
-need:
+""" 
+Split up data into progress vs non-progress; get stats for the following:
 
 1. sex
 2. mmse
@@ -14,12 +7,30 @@ need:
 
 """
 
+from typing import Literal
 
-def load_dataset(Dataset: str) -> Dataset:
+import numpy as np
+import pandas as pd
+
+from dataloader import Dataset, ParcellationDataBinary
+
+DatasetName = Literal["ADNI", "NACC"]
+
+
+def load_dataset(dataset: DatasetName) -> Dataset:
+    """
+    Loads complete dataset using the same dataloader used to construct the MLP model.
+
+    Args:
+        dataset (str): NACC or ADNI
+
+    Returns:
+        Dataset: Dataset with age, mmse, sex all added
+    """
     return ParcellationDataBinary(
         exp_idx=0,
         stage="all",
-        dataset=Dataset,
+        dataset=dataset,
         ratio=(0.8, 0.1, 0.1),
         add_age=True,
         add_mmse=True,
@@ -27,17 +38,36 @@ def load_dataset(Dataset: str) -> Dataset:
     )
 
 
-def load_dataset_as_df(Dataset: str) -> pd.DataFrame:
-    ds = load_dataset(Dataset)
+def load_dataset_as_df(dataset: DatasetName) -> pd.DataFrame:
+    """
+    Retrieve only the values for age, mmse, sex, and ?progress
+    for each participant in the dataset "dataset"
+
+
+    Args:
+        dataset (DatasetName): either NACC or ADNI
+
+    Returns:
+        pd.DataFrame: df with age, mmse, sex, and ?progress
+    """
+    ds_ = load_dataset(dataset)
     fields_of_interest = ["age", "mmse", "sex", "progress"]
-    labels = ds.get_labels()
-    data = ds.get_data()
+    labels = ds_.get_labels()
+    data = ds_.get_data()
     data_of_interest = np.concatenate([data[:, -3:], np.expand_dims(labels, 1)], axis=1)
-    df = pd.DataFrame(data_of_interest, columns=fields_of_interest)
-    return df
+    df_ = pd.DataFrame(data_of_interest, columns=fields_of_interest)
+    return df_
 
 
 def stack_datasets(**kwargs) -> pd.DataFrame:
+    """
+    From a list of datasetname: pd.DataFrame,
+        concatenate the associated pd.DataFrames and create a
+        column "Dataset" storing the dataframe label
+
+    Returns:
+        pd.DataFrame: concatenated dataframe
+    """
     datasets = []
     for label, tbl in kwargs.items():
         tbl["Dataset"] = label
@@ -45,7 +75,13 @@ def stack_datasets(**kwargs) -> pd.DataFrame:
     return pd.concat(datasets, axis=0, ignore_index=True)
 
 
-def demo_stats(df: pd.DataFrame):
+def demo_stats(df: pd.DataFrame) -> None:
+    """
+    Retrieve demographic statistics, both mean / std for each and cross tabulated data for sex
+
+    Args:
+        df (pd.DataFrame): output from stack_datasets
+    """
     with open("demo_stats.txt", "w") as fi:
         fi.write("MEAN\n\n")
         fi.write(str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.mean(x))))
@@ -60,12 +96,12 @@ def demo_stats(df: pd.DataFrame):
             )
         )
         fi.write("Sex")
-        adni = df.query("Dataset == 'adni'").copy()
-        nacc = df.query("Dataset == 'nacc'").copy()
+        adni_ = df.query("Dataset == 'adni'").copy()
+        nacc_ = df.query("Dataset == 'nacc'").copy()
         fi.write("\n\nADNI\n")
-        fi.write(str(pd.crosstab(adni["sex"], adni["progress"])))
+        fi.write(str(pd.crosstab(adni_["sex"], adni_["progress"])))
         fi.write("\n\nNACC\n")
-        fi.write(str(pd.crosstab(nacc["sex"], nacc["progress"])))
+        fi.write(str(pd.crosstab(nacc_["sex"], nacc_["progress"])))
 
 
 if __name__ == "__main__":
