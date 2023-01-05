@@ -1,19 +1,21 @@
-from dataloader import ParcellationDataBinary
-from models import _MLP_Surv
-from utils import write_raw_score
-from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+import os
+from typing import Dict
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import tabulate
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from typing import Dict
-import tabulate
-import os
-import matplotlib.pyplot as plt
-from torchviz import make_dot
 from sklearn.metrics import classification_report
-import numpy as np
-import pandas as pd
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from torchviz import make_dot
+
+from dataloader import ParcellationDataBinary
+from models import _MLP_Surv
+from utils import write_raw_score
 
 torch.set_num_threads(
     1
