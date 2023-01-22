@@ -2,27 +2,23 @@
 # Created: 6/16/2021
 # Status: ok
 
-import random
+import copy
 import glob
 import json
-import os, sys
-import torch
-import copy
+import os
+import random
+import sys
 
-import numpy as np
 import nibabel as nib
+import numpy as np
 import pandas as pd
-
+import torch
 from torch.utils.data import Dataset
-from utils import (
-    read_csv_sp as read_csv,
-    read_csv_cox_ext as read_csv_ext,
-    rescale,
-    read_csv_pre,
-    read_json,
-    retrieve_kfold_partition,
-    read_csv_demog,
-)
+
+from utils import read_csv_cox_ext as read_csv_ext
+from utils import read_csv_demog_ed_apoe, read_csv_pre
+from utils import read_csv_sp as read_csv
+from utils import read_json, rescale
 
 SCALE = 1  # rescale to 0~2.5
 
@@ -74,9 +70,7 @@ class B_Data(Dataset):
                     break
         self.data_list = tmp_d
         self.time_hit = tmp_h
-        self.fileIDs = (
-            tmp_f  # Note: this only for csv generation not used for data retrival
-        )
+        self.fileIDs = tmp_f  # Note: this only for csv generation not used for data retrival
 
         # print(len(tmp_f))
         l = len(self.data_list)
@@ -183,9 +177,7 @@ class B_IQ_Data(Dataset):
                     break
         self.data_list = tmp_d
         self.time_hit = tmp_h
-        self.fileIDs = (
-            tmp_f  # Note: this only for csv generation not used for data retrival
-        )
+        self.fileIDs = tmp_f  # Note: this only for csv generation not used for data retrival
 
         # print(len(tmp_f))
         l = len(self.data_list)
@@ -242,6 +234,8 @@ class ParcellationDataBinary(Dataset):
         add_age=False,
         add_mmse=False,
         add_sex=False,
+        add_apoe=False,
+        add_educ=False,
     ):
         random.seed(seed)
         self.exp_idx = exp_idx
@@ -251,13 +245,22 @@ class ParcellationDataBinary(Dataset):
         self.csv_directory = json_props["datadir"]
         self.csvname = self.csv_directory + json_props["metadata_fi"][dataset]
         self.parcellation_file = pd.read_csv(
-            self.csv_directory + json_props["parcellation_fi"], dtype={"RID": str}
+            self.csv_directory + json_props["parcellation_fi"],
+            dtype={"RID": str},
         )
         self.parcellation_file = (
             self.parcellation_file.query("Dataset == @dataset")
             .drop(columns=["Dataset", "PROGRESSION_CATEGORY"])
             .copy()
         )  # query the parcellations
+        # (
+        #     self.rids,
+        #     self.time_obs,
+        #     self.hit,
+        #     self.age,
+        #     self.mmse,
+        #     self.sex,
+        # ) = read_csv_demog(self.csvname)
         (
             self.rids,
             self.time_obs,
@@ -265,7 +268,9 @@ class ParcellationDataBinary(Dataset):
             self.age,
             self.mmse,
             self.sex,
-        ) = read_csv_demog(self.csvname)
+            self.educ,
+            self.apoe,
+        ) = read_csv_demog_ed_apoe(self.csvname)
         if dataset == "ADNI":
             data_order = glob.glob("/data1/RGAN_Data/Z/" + "*nii*")
         else:
@@ -280,7 +285,9 @@ class ParcellationDataBinary(Dataset):
 
         idx_map = [self.rids.index(x) for x in rid_order]
 
-        self.parcellation_file = self.parcellation_file.loc[rid_order, :].reset_index(
+        self.parcellation_file = self.parcellation_file.loc[
+            rid_order, :
+        ].reset_index(
             drop=True
         )  # sort by RID
         self.rids = np.asarray(self.rids)[idx_map]
@@ -293,6 +300,10 @@ class ParcellationDataBinary(Dataset):
             self.parcellation_file["mmse"] = np.asarray(self.mmse)[idx_map]
         if add_sex:
             self.parcellation_file["sex"] = np.asarray(self.sex)[idx_map]
+        if add_apoe:
+            self.parcellation_file["apoe"] = np.asarray(self.apoe)[idx_map]
+        if add_educ:
+            self.parcellation_file["educ"] = np.asarray(self.educ)[idx_map]
 
         self._cutoff(36.0)
 
@@ -321,7 +332,9 @@ class ParcellationDataBinary(Dataset):
         self.rids = self.rids[valid_datapoints]
         self.hit = self.hit[valid_datapoints]
         self.time_obs = self.time_obs[valid_datapoints]
-        self.parcellation_file = self.parcellation_file.loc[valid_datapoints, :]
+        self.parcellation_file = self.parcellation_file.loc[
+            valid_datapoints, :
+        ]
         self.PMCI = np.array(
             [t <= n_months and y == 1 for t, y in zip(self.time_obs, self.hit)]
         )
@@ -330,7 +343,8 @@ class ParcellationDataBinary(Dataset):
     def _prep_data(self, feature_df):
         self.rid = np.array(self.rids)
         feature_df.drop(
-            columns=["CSF", "3thVen", "4thVen", "InfLatVen", "LatVen"], inplace=True
+            columns=["CSF", "3thVen", "4thVen", "InfLatVen", "LatVen"],
+            inplace=True,
         )  # drop ventricles
         self.labels = feature_df.columns
         self.data = feature_df.to_numpy()

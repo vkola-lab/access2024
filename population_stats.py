@@ -4,7 +4,8 @@ Split up data into progress vs non-progress; get stats for the following:
 1. sex
 2. mmse
 3. age
-
+4. apoe #
+5. educ (# years)
 """
 
 from typing import Literal
@@ -35,6 +36,8 @@ def load_dataset(dataset: DatasetName) -> Dataset:
         add_age=True,
         add_mmse=True,
         add_sex=True,
+        add_apoe=True,
+        add_educ=True,
     )
 
 
@@ -54,7 +57,9 @@ def load_dataset_as_df(dataset: DatasetName) -> pd.DataFrame:
     fields_of_interest = ["age", "mmse", "sex", "progress"]
     labels = ds_.get_labels()
     data = ds_.get_data()
-    data_of_interest = np.concatenate([data[:, -3:], np.expand_dims(labels, 1)], axis=1)
+    data_of_interest = np.concatenate(
+        [data[:, -3:], np.expand_dims(labels, 1)], axis=1
+    )
     df_ = pd.DataFrame(data_of_interest, columns=fields_of_interest)
     return df_
 
@@ -84,9 +89,13 @@ def demo_stats(df: pd.DataFrame) -> None:
     """
     with open("demo_stats.txt", "w") as fi:
         fi.write("MEAN\n\n")
-        fi.write(str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.mean(x))))
+        fi.write(
+            str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.mean(x)))
+        )
         fi.write("\n\nSTD\n\n")
-        fi.write(str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.std(x))))
+        fi.write(
+            str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.std(x)))
+        )
         fi.write("\n\nN\n\n")
         fi.write(
             str(
