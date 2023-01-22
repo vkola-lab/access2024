@@ -54,7 +54,7 @@ def load_dataset_as_df(dataset: DatasetName) -> pd.DataFrame:
         pd.DataFrame: df with age, mmse, sex, and ?progress
     """
     ds_ = load_dataset(dataset)
-    fields_of_interest = ["age", "mmse", "sex", "progress"]
+    fields_of_interest = ["age", "mmse", "sex", "apoe", "educ", "progress"]
     labels = ds_.get_labels()
     data = ds_.get_data()
     data_of_interest = np.concatenate(
@@ -115,6 +115,8 @@ def demo_stats(df: pd.DataFrame) -> None:
 
 if __name__ == "__main__":
     nacc = load_dataset_as_df("NACC")
-    adni = load_dataset_as_df("ADNI")
-    ds = stack_datasets(nacc=nacc, adni=adni)
-    demo_stats(ds)
+    print(nacc.head())
+    # nacc = load_dataset_as_df("NACC")
+    # adni = load_dataset_as_df("ADNI")
+    # ds = stack_datasets(nacc=nacc, adni=adni)
+    # demo_stats(ds)

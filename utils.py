@@ -388,7 +388,7 @@ def read_csv_demog_ed_apoe(filename, skip_ids: list = None):
                 mmse += [float(r["MMSCORE_mmse"])]
             else:
                 mmse += [np.nan if r["MMSE"] == "" else float(r["MMSE"])]
-            apoe += [str(round(float(r["APOE"])))]
+            apoe += [str(r["APOE"])]
             if "EDUC" in r.keys():
                 educ += [float(r["EDUC"])]
             else:
