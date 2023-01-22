@@ -57,9 +57,7 @@ def load_dataset_as_df(dataset: DatasetName) -> pd.DataFrame:
     fields_of_interest = ["age", "mmse", "sex", "apoe", "educ", "progress"]
     labels = ds_.get_labels()
     data = ds_.get_data()
-    data_of_interest = np.concatenate(
-        [data[:, -3:], np.expand_dims(labels, 1)], axis=1
-    )
+    data_of_interest = np.concatenate([data[:, -5:], np.expand_dims(labels, 1)], axis=1)
     df_ = pd.DataFrame(data_of_interest, columns=fields_of_interest)
     return df_
 
@@ -89,13 +87,9 @@ def demo_stats(df: pd.DataFrame) -> None:
     """
     with open("demo_stats.txt", "w") as fi:
         fi.write("MEAN\n\n")
-        fi.write(
-            str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.mean(x)))
-        )
+        fi.write(str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.mean(x))))
         fi.write("\n\nSTD\n\n")
-        fi.write(
-            str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.std(x)))
-        )
+        fi.write(str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.std(x))))
         fi.write("\n\nN\n\n")
         fi.write(
             str(
@@ -112,11 +106,15 @@ def demo_stats(df: pd.DataFrame) -> None:
         fi.write("\n\nNACC\n")
         fi.write(str(pd.crosstab(nacc_["sex"], nacc_["progress"])))
 
+        fi.write("\n\nAPOE")
+        fi.write("\n\nADNI\n")
+        fi.write(str(pd.crosstab(adni_["apoe"], adni_["progress"])))
+        fi.write("\n\nNACC\n")
+        fi.write(str(pd.crosstab(nacc_["apoe"], nacc_["progress"])))
+
 
 if __name__ == "__main__":
     nacc = load_dataset_as_df("NACC")
-    print(nacc.head())
-    # nacc = load_dataset_as_df("NACC")
-    # adni = load_dataset_as_df("ADNI")
-    # ds = stack_datasets(nacc=nacc, adni=adni)
-    # demo_stats(ds)
+    adni = load_dataset_as_df("ADNI")
+    ds = stack_datasets(nacc=nacc, adni=adni)
+    demo_stats(ds)
