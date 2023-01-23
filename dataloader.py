@@ -8,6 +8,7 @@ import json
 import os
 import random
 import sys
+from typing import Literal
 
 import nibabel as nib
 import numpy as np
@@ -70,7 +71,9 @@ class B_Data(Dataset):
                     break
         self.data_list = tmp_d
         self.time_hit = tmp_h
-        self.fileIDs = tmp_f  # Note: this only for csv generation not used for data retrival
+        self.fileIDs = (
+            tmp_f  # Note: this only for csv generation not used for data retrival
+        )
 
         # print(len(tmp_f))
         l = len(self.data_list)
@@ -177,7 +180,9 @@ class B_IQ_Data(Dataset):
                     break
         self.data_list = tmp_d
         self.time_hit = tmp_h
-        self.fileIDs = tmp_f  # Note: this only for csv generation not used for data retrival
+        self.fileIDs = (
+            tmp_f  # Note: this only for csv generation not used for data retrival
+        )
 
         # print(len(tmp_f))
         l = len(self.data_list)
@@ -281,13 +286,14 @@ class ParcellationDataBinary(Dataset):
         self.parcellation_file["RID"] = self.parcellation_file["RID"].apply(
             lambda x: x.zfill(4)
         )
+
         self.parcellation_file.set_index("RID", inplace=True)
 
         idx_map = [self.rids.index(x) for x in rid_order]
 
-        self.parcellation_file = self.parcellation_file.loc[
-            rid_order, :
-        ].reset_index(
+        # idx_map = [self.rids.index(x) for x in self.parcellation_file.index]
+
+        self.parcellation_file = self.parcellation_file.loc[rid_order, :].reset_index(
             drop=True
         )  # sort by RID
         self.rids = np.asarray(self.rids)[idx_map]
@@ -323,18 +329,19 @@ class ParcellationDataBinary(Dataset):
             # print(len(self.index_list))
         else:
             raise Exception("Unexpected Stage for MLP_Data!")
+
+        print(len(self.index_list))
         self._prep_data(self.parcellation_file)
 
     def _cutoff(self, n_months: float):
         valid_datapoints = [
             t > n_months or y == 1 for t, y in zip(self.time_obs, self.hit)
         ]
+
         self.rids = self.rids[valid_datapoints]
         self.hit = self.hit[valid_datapoints]
         self.time_obs = self.time_obs[valid_datapoints]
-        self.parcellation_file = self.parcellation_file.loc[
-            valid_datapoints, :
-        ]
+        self.parcellation_file = self.parcellation_file.loc[valid_datapoints, :]
         self.PMCI = np.array(
             [t <= n_months and y == 1 for t, y in zip(self.time_obs, self.hit)]
         )
@@ -374,41 +381,20 @@ def filter_rid(file_list: list) -> list:
     return list(map(rid_extract, file_list))
 
 
-def test_rid_orders(seed: int):
-    with open(f"rids/ADNI/test{seed}.txt", "r") as fi:
-        fi_ = eval(fi.readlines()[0])
-    rids_x = filter_rid(fi_)
-
-    with open(f"rids/mlp_ADNI_test_{seed}.txt", "r") as fi:
-        fi_ = fi.readlines()
-    fi_ = list(map(lambda x: x.split(",")[0], fi_))
-    assert all([x == y for x, y in zip(rids_x, fi_)])
-    return True
+def test_hits(ds_: Literal["ADNI", "NACC"]) -> None:
+    ds = ParcellationDataBinary(0, stage="all", dataset=ds_)
+    csvname = "./csvs/merged_dataframe_cox_noqc_pruned_final.csv"
+    csvname = os.path.expanduser(csvname)
+    rids, pmci = read_csv(csvname)  # training file
+    if ds_ == "NACC":
+        csvname = "./csvs/merged_dataframe_cox_test_pruned_final.csv"
+        rids, pmci = read_csv_ext(csvname)  # training file
+    orig_ids, orig_time_hit = ds.rids, ds.PMCI
+    orig_dict = {rid: hit for rid, hit in zip(orig_ids, orig_time_hit)}
+    new_dict = {rid: hit for rid, hit in zip(rids, pmci)}
+    assert all(orig_dict[key] == new_dict[key] for key in orig_dict.keys())
 
 
 if __name__ == "__main__":
-    # Data_dir_NACC = "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
-    # Data_dir_ADNI = "/data2/MRI_PET_DATA/processed_images_final_unused_cox/brain_stripped_unused_cox/"
-    # external_data = B_Data(Data_dir_ADNI, 'all', Pre=True)
-    # print(len(external_data))
-    # for _ in external_data:
-    #     print()
-    #     sys.exit()
-    external_data = ParcellationDataBinary(
-        1,
-        stage="all",
-        dataset="ADNI",
-        ratio=(0.8, 0.1, 0.1),
-        add_age=False,
-        add_mmse=False,
-    )
-    print(len(external_data))
-    external_data = ParcellationDataBinary(
-        1,
-        stage="all",
-        dataset="NACC",
-        ratio=(0.8, 0.1, 0.1),
-        add_age=False,
-        add_mmse=False,
-    )
-    print(len(external_data))
+    test_hits("ADNI")
+    test_hits("NACC")

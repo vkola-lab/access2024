@@ -325,9 +325,7 @@ def deabbreviate_parcellation_columns(df):
     )
     df_dict = df_dict.loc[[x[0] == "l" for x in df_dict["ROIabbr"]], :]
     df_dict["ROIabbr"] = df_dict["ROIabbr"].apply(lambda x: x[1:])
-    df_dict["ROIname"] = df_dict["ROIname"].apply(
-        lambda x: x.replace("Left ", "")
-    )
+    df_dict["ROIname"] = df_dict["ROIname"].apply(lambda x: x.replace("Left ", ""))
     df_dict = df_dict.set_index("ROIabbr").to_dict()["ROIname"]
     df.rename(columns=df_dict, inplace=True)
 
@@ -342,7 +340,7 @@ def read_csv_demog(filename, skip_ids: list = None):
                     continue
             fileIDs += [str(r["RID"])]
             time_obs += [
-                float(r["TIMES"])
+                int(float(r["TIMES"]))
             ]  # changed to TIMES_ROUNDED. consider switching so observations for progressors are all < 1 year
             hit += [int(float(r["PROGRESSES"]))]
             age += [float(r["AGE"])]
@@ -376,7 +374,7 @@ def read_csv_demog_ed_apoe(filename, skip_ids: list = None):
                     continue
             fileIDs += [str(r["RID"])]
             time_obs += [
-                float(r["TIMES"])
+                int(float(r["TIMES"]))
             ]  # changed to TIMES_ROUNDED. consider switching so observations for progressors are all < 1 year
             hit += [int(float(r["PROGRESSES"]))]
             age += [float(r["AGE"])]

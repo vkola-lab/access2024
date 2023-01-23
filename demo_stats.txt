@@ -23,9 +23,7 @@ Dataset progress
 adni    0         226   226   226
         1         116   116   116
 nacc    0          95    75    95
-        1          95    55    95
-         
-Sex
+        1          95    55    95Sex
 
 ADNI
 progress    0   1
