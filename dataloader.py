@@ -348,7 +348,7 @@ class ParcellationDataBinary(Dataset):
         self.PMCI = np.where(self.PMCI, 1, 0)
 
     def _prep_data(self, feature_df):
-        self.rid = np.array(self.rids)
+        self.rids = np.array(self.rids)
         feature_df.drop(
             columns=["CSF", "3thVen", "4thVen", "InfLatVen", "LatVen"],
             inplace=True,
@@ -363,8 +363,8 @@ class ParcellationDataBinary(Dataset):
         idx_transformed = self.index_list[idx]
         x = self.data[idx_transformed]
         pmci = self.PMCI[idx_transformed]
-        rid = self.rid[idx_transformed]
-        return x, pmci, rid
+        rids = self.rids[idx_transformed]
+        return x, pmci, rids
 
     def get_features(self):
         return self.labels
@@ -395,6 +395,34 @@ def test_hits(ds_: Literal["ADNI", "NACC"]) -> None:
     assert all(orig_dict[key] == new_dict[key] for key in orig_dict.keys())
 
 
+def _read_txt(fold, stage, ds_) -> list:
+    with open(f"./rids/{ds_}/{stage}{fold*100}.txt", "r") as fi_:
+        payload = fi_.readlines()
+    file_list = (
+        payload[0]
+        .replace("[", "")
+        .replace("]", "")
+        .replace("\n", "")
+        .replace("'", "")
+        .split(", ")
+    )
+    return filter_rid(file_list)
+
+
+def test_folds() -> None:
+    for fold in range(5):
+        for stage in ("train", "valid", "test"):
+            for ds_ in ("ADNI",):
+                dl_ = ParcellationDataBinary(fold, stage=stage, dataset=ds_)
+                rids = dl_.rids[dl_.index_list]
+                txt = _read_txt(fold, stage, ds_)
+                rids.sort()
+                txt.sort()
+                print(txt)
+                print(rids)
+
+
 if __name__ == "__main__":
     test_hits("ADNI")
     test_hits("NACC")
+    test_folds()
