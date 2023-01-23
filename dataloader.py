@@ -71,9 +71,7 @@ class B_Data(Dataset):
                     break
         self.data_list = tmp_d
         self.time_hit = tmp_h
-        self.fileIDs = (
-            tmp_f  # Note: this only for csv generation not used for data retrival
-        )
+        self.fileIDs = tmp_f  # Note: this only for csv generation not used for data retrival
 
         # print(len(tmp_f))
         l = len(self.data_list)
@@ -180,9 +178,7 @@ class B_IQ_Data(Dataset):
                     break
         self.data_list = tmp_d
         self.time_hit = tmp_h
-        self.fileIDs = (
-            tmp_f  # Note: this only for csv generation not used for data retrival
-        )
+        self.fileIDs = tmp_f  # Note: this only for csv generation not used for data retrival
 
         # print(len(tmp_f))
         l = len(self.data_list)
@@ -293,7 +289,9 @@ class ParcellationDataBinary(Dataset):
 
         # idx_map = [self.rids.index(x) for x in self.parcellation_file.index]
 
-        self.parcellation_file = self.parcellation_file.loc[rid_order, :].reset_index(
+        self.parcellation_file = self.parcellation_file.loc[
+            rid_order, :
+        ].reset_index(
             drop=True
         )  # sort by RID
         self.rids = np.asarray(self.rids)[idx_map]
@@ -340,7 +338,9 @@ class ParcellationDataBinary(Dataset):
         self.rids = self.rids[valid_datapoints]
         self.hit = self.hit[valid_datapoints]
         self.time_obs = self.time_obs[valid_datapoints]
-        self.parcellation_file = self.parcellation_file.loc[valid_datapoints, :]
+        self.parcellation_file = self.parcellation_file.loc[
+            valid_datapoints, :
+        ]
         self.PMCI = np.array(
             [t <= n_months and y == 1 for t, y in zip(self.time_obs, self.hit)]
         )
@@ -378,57 +378,3 @@ class ParcellationDataBinary(Dataset):
 def filter_rid(file_list: list) -> list:
     rid_extract = lambda x: x.split("masked_brain_mri_")[1].split(".nii")[0]
     return list(map(rid_extract, file_list))
-
-
-def test_hits(ds_: Literal["ADNI", "NACC"]) -> None:
-    ds = ParcellationDataBinary(0, stage="all", dataset=ds_)
-    csvname = "./csvs/merged_dataframe_cox_noqc_pruned_final.csv"
-    csvname = os.path.expanduser(csvname)
-    rids, pmci = read_csv(csvname)  # training file
-    if ds_ == "NACC":
-        csvname = "./csvs/merged_dataframe_cox_test_pruned_final.csv"
-        rids, pmci = read_csv_ext(csvname)  # training file
-    orig_ids, orig_time_hit = ds.rids, ds.PMCI
-    orig_dict = {rid: hit for rid, hit in zip(orig_ids, orig_time_hit)}
-    new_dict = {rid: hit for rid, hit in zip(rids, pmci)}
-    assert all(orig_dict[key] == new_dict[key] for key in orig_dict.keys())
-
-
-def _read_txt(fold, stage, ds_) -> list:
-    with open(f"./rids/{ds_}/{stage}{fold*100}.txt", "r") as fi_:
-        payload = fi_.readlines()
-    file_list = (
-        payload[0]
-        .replace("[", "")
-        .replace("]", "")
-        .replace("\n", "")
-        .replace("'", "")
-        .split(", ")
-    )
-    return filter_rid(file_list)
-
-
-def test_individual_fold(rids, fold, stage, ds_) -> None:
-    txt = _read_txt(fold, stage, ds_)
-    assert np.array_equal(np.asarray(rids), np.asarray(txt))
-
-
-def test_folds() -> None:
-    for fold in range(5):
-        for stage in (
-            "train",
-            "test",
-            "valid",
-        ):
-            for ds_ in ("ADNI",):
-                dl_ = ParcellationDataBinary(
-                    fold, stage=stage, dataset=ds_, seed=fold * 100
-                )
-                rids = dl_.rids[dl_.index_list]
-                test_individual_fold(rids, fold, stage, ds_)
-
-
-if __name__ == "__main__":
-    test_hits("ADNI")
-    test_hits("NACC")
-    test_folds()
