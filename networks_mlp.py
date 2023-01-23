@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchviz import make_dot
 
-from dataloader import ParcellationDataBinary
+from dataloader import ParcellationDataBinary, test_individual_fold
 from models import _MLP_Surv
 from utils import write_raw_score
 

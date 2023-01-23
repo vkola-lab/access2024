@@ -408,6 +408,11 @@ def _read_txt(fold, stage, ds_) -> list:
     return filter_rid(file_list)
 
 
+def test_individual_fold(rids, fold, stage, ds_) -> None:
+    txt = _read_txt(fold, stage, ds_)
+    assert np.array_equal(np.asarray(rids), np.asarray(txt))
+
+
 def test_folds() -> None:
     for fold in range(5):
         for stage in (
@@ -420,8 +425,7 @@ def test_folds() -> None:
                     fold, stage=stage, dataset=ds_, seed=fold * 100
                 )
                 rids = dl_.rids[dl_.index_list]
-                txt = _read_txt(fold, stage, ds_)
-                assert np.array_equal(np.asarray(rids), np.asarray(txt))
+                test_individual_fold(rids, fold, stage, ds_)
 
 
 if __name__ == "__main__":
