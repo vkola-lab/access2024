@@ -330,7 +330,6 @@ class ParcellationDataBinary(Dataset):
         else:
             raise Exception("Unexpected Stage for MLP_Data!")
 
-        print(len(self.index_list))
         self._prep_data(self.parcellation_file)
 
     def _cutoff(self, n_months: float):
@@ -411,15 +410,18 @@ def _read_txt(fold, stage, ds_) -> list:
 
 def test_folds() -> None:
     for fold in range(5):
-        for stage in ("train", "valid", "test"):
+        for stage in (
+            "train",
+            "test",
+            "valid",
+        ):
             for ds_ in ("ADNI",):
-                dl_ = ParcellationDataBinary(fold, stage=stage, dataset=ds_)
+                dl_ = ParcellationDataBinary(
+                    fold, stage=stage, dataset=ds_, seed=fold * 100
+                )
                 rids = dl_.rids[dl_.index_list]
                 txt = _read_txt(fold, stage, ds_)
-                rids.sort()
-                txt.sort()
-                print(txt)
-                print(rids)
+                assert np.array_equal(np.asarray(rids), np.asarray(txt))
 
 
 if __name__ == "__main__":
