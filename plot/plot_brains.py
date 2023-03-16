@@ -236,7 +236,6 @@ class BrainSample(object):
         os.makedirs(self.output_path, exist_ok=True)
         ax = plt.subplot(111)
         img = self.brains[type_fg] - self.brains[type_bg]
-        img = img.threshold()
         plotting.plot_anat(
             img.brain_img,
             axes=ax,
@@ -246,7 +245,7 @@ class BrainSample(object):
             draw_cross=False,
             colorbar=True,
             threshold=1e-6,
-            cmap=plt.cm.hot,
+            # cmap=plt.cm.hot,
             vmin=caxis[0],
             vmax=caxis[1],
         )
@@ -316,7 +315,7 @@ class NiftiBrain:
     _extended_summary_
     """
 
-    def __init__(self, img: nib.Nifti1Image):
+    def __init__(self, img: nib.Nifti1Image) -> None:
         self.original_brain = img.get_fdata()
         self.brain_img = img
         self.affine = img.affine
@@ -432,18 +431,18 @@ def plot_sample_slices_all():
 if __name__ == "__main__":
     # generate_mask_dir()
     bs = BrainSample()
-    bs.plot_missing_montage()
+    # bs.plot_missing_montage()
     caxis = (
         0,
         2.5,
     )
-    plot_slices("orig", caxis)
-    plot_slices("noised")
-    plot_slices("novel")
-    plot_slices("vanilla")
-    plot_slices("linear")
+    # plot_slices("orig", caxis)
+    # plot_slices("noised")
+    # plot_slices("novel")
+    # plot_slices("vanilla")
+    # plot_slices("linear")
     bs.plot_slice_diff(
-        dim="z", type_bg="vanilla", type_fg="novel", num=-85, caxis=(-1, 1)
+        dim="z", type_bg="vanilla", type_fg="novel", num=-85, caxis=(-1.5, 1.5)
     )
     # bs.plot_slice_edge(dim="z", type_="vanilla", num=-85, caxis=(-1.5, 1.5))
     # plot_sample_slices_all()
