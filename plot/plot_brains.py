@@ -1,11 +1,12 @@
 import os
 import re
-import nibabel as nib
+
 import matplotlib.pyplot as plt
+import nibabel as nib
 import numpy as np
-from tqdm import tqdm
 from nilearn import plotting
-from skimage import morphology
+from skimage import filters, morphology
+from tqdm import tqdm
 
 
 def rescale(array, tup) -> tuple:
@@ -32,6 +33,10 @@ def rescale(array, tup) -> tuple:
     a = np.max(array) - np.min(array)
     t = tup[1] - tup[0]
     return (array * t / a), (m, t, a)
+
+
+def sobel_filter(array) -> np.ndarray:
+    return filters.sobel(array)
 
 
 def rescale_from_prev(array, m, t, a) -> tuple:
@@ -101,7 +106,9 @@ class BrainSample(object):
     }
     idx_rel_path = "slice_list/ADNI"
 
-    def __init__(self, brain_path="/Users/mromano/research/data/rgan_data", rid="0307"):
+    def __init__(
+        self, brain_path="/Users/mromano/research/data/rgan_data", rid="0307"
+    ):
         self.rid = rid
         self.path = brain_path
         self.output_path = os.path.join(brain_path, "..", "img")
@@ -111,7 +118,9 @@ class BrainSample(object):
                 brain_path, f, self.prefix + self.rid + self.file_type
             )
         self.idx_missing = read_txt(
-            os.path.join(brain_path, self.idx_rel_path, self.prefix + self.rid + ".txt")
+            os.path.join(
+                brain_path, self.idx_rel_path, self.prefix + self.rid + ".txt"
+            )
         )
         self.idx_missing.sort()
 
@@ -164,7 +173,9 @@ class BrainSample(object):
         plt.savefig(f_name, dpi=300, transparent=True)
         plt.close()
 
-    def plot_missing_montage(self, output_fi: str = "figure4.eps"):
+    def plot_missing_montage(
+        self, output_fi: str = "figure4.eps", normalize=True
+    ):
         """
         plot_missing_montage _summary_
 
@@ -174,9 +185,13 @@ class BrainSample(object):
         for idx in np.arange(5, len(self.idx_missing) - 5, 10):
             curr_slices = []
             for val in ["orig", "vanilla", "novel", "linear"]:
+                if normalize:
+                    self.brains[val].rescale()
                 curr_slices.append(
                     np.squeeze(
-                        self.brains[val].original_brain[self.idx_missing[idx], :, :]
+                        self.brains[val].original_brain[
+                            self.idx_missing[idx], :, :
+                        ]
                     )
                 )
             curr_slices = np.concatenate(curr_slices, axis=1).T
@@ -230,13 +245,62 @@ class BrainSample(object):
             draw_cross=False,
             colorbar=True,
             threshold=1e-6,
-            # cmap=plt.cm.hot,
+            cmap=plt.cm.hot,
             vmin=caxis[0],
             vmax=caxis[1],
         )
         f_name = (
             f"{self.output_path}/{self.rid}_{dim}_"
             f"{str(num).zfill(3)}_{type_fg}_minus_{type_bg}.eps"
+        )
+        plt.savefig(f_name, dpi=300, transparent=True)
+        plt.close()
+
+    def plot_slice_edge(
+        self,
+        dim: str = "z",
+        type_: str = "orig",
+        num: str = "32",
+        caxis: tuple = (
+            None,
+            None,
+        ),
+    ):
+        """
+        plot_slice_edge
+
+        plots difference in values between two different brains
+
+        Parameters
+        ----------
+        dim : str, optional
+            as above, by default 'z'
+        type_ : str, optional
+            image, by default 'orig'
+        num : str, optional
+            as above, by default '32'
+        caxis : tuple, optional
+            as above, by default (None, None,)
+        """
+        os.makedirs(self.output_path, exist_ok=True)
+        ax = plt.subplot(111)
+        img = self.brains[type_]
+        plotting.plot_anat(
+            img.edge_detect(),
+            axes=ax,
+            display_mode=dim,
+            cut_coords=[num],
+            annotate=False,
+            draw_cross=False,
+            colorbar=True,
+            threshold=1e-6,
+            cmap=plt.cm.hot,
+            vmin=caxis[0],
+            vmax=caxis[1],
+        )
+        f_name = (
+            f"{self.output_path}/{self.rid}_{dim}_"
+            f"{str(num).zfill(3)}_{type_}_edges.eps"
         )
         plt.savefig(f_name, dpi=300, transparent=True)
         plt.close()
@@ -291,15 +355,28 @@ class NiftiBrain:
         self.brain_img = nib.Nifti1Image(self.original_brain, self.affine)
         return m, t, a
 
+    def edge_detect(
+        self,
+    ):
+        filtered_brain = sobel_filter(self.original_brain)
+        brain_img = nib.Nifti1Image(filtered_brain, self.affine)
+        return brain_img
+
     def rescale_from_prev(self, m, t, a):
-        self.original_brain, (m, t, a) = rescale_from_prev(self.original_brain, m, t, a)
+        self.original_brain, (m, t, a) = rescale_from_prev(
+            self.original_brain, m, t, a
+        )
         self.brain_img = nib.Nifti1Image(self.original_brain, self.affine)
         return m, t, a
 
     def __sub__(self, brain):
-        assert np.all(brain.affine == self.affine) and np.all(brain.shape == self.shape)
+        assert np.all(brain.affine == self.affine) and np.all(
+            brain.shape == self.shape
+        )
         return NiftiBrain(
-            nib.Nifti1Image(self.original_brain - brain.original_brain, self.affine)
+            nib.Nifti1Image(
+                self.original_brain - brain.original_brain, self.affine
+            )
         )
 
 
@@ -349,16 +426,16 @@ if __name__ == "__main__":
     # generate_mask_dir()
     bs = BrainSample()
     bs.plot_missing_montage()
-    caxis = (
-        0,
-        2.5,
-    )
-    plot_slices("orig", caxis)
-    plot_slices("noised")
-    plot_slices("novel")
-    plot_slices("vanilla")
-    plot_slices("linear")
+    # caxis = (
+    #     0,
+    #     2.5,
+    # )
+    # plot_slices("orig", caxis)
+    # plot_slices("noised")
+    # plot_slices("novel")
+    # plot_slices("vanilla")
+    # plot_slices("linear")
     bs.plot_slice_diff(
         dim="z", type_bg="vanilla", type_fg="novel", num=-85, caxis=(-1.5, 1.5)
     )
-    plot_sample_slices_all()
+    # plot_sample_slices_all()
