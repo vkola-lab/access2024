@@ -174,7 +174,7 @@ class BrainSample(object):
         plt.close()
 
     def plot_missing_montage(
-        self, output_fi: str = "figure4.eps", normalize=True
+        self, output_fi: str = "figure4.eps", normalize=False
     ):
         """
         plot_missing_montage _summary_
@@ -236,6 +236,7 @@ class BrainSample(object):
         os.makedirs(self.output_path, exist_ok=True)
         ax = plt.subplot(111)
         img = self.brains[type_fg] - self.brains[type_bg]
+        img = img.threshold()
         plotting.plot_anat(
             img.brain_img,
             axes=ax,
@@ -286,7 +287,7 @@ class BrainSample(object):
         ax = plt.subplot(111)
         img = self.brains[type_]
         plotting.plot_anat(
-            img.edge_detect(),
+            img.edge_detect().brain_img,
             axes=ax,
             display_mode=dim,
             cut_coords=[num],
@@ -295,8 +296,8 @@ class BrainSample(object):
             colorbar=True,
             threshold=1e-6,
             cmap=plt.cm.hot,
-            vmin=caxis[0],
-            vmax=caxis[1],
+            # vmin=caxis[0],
+            # vmax=caxis[1],
         )
         f_name = (
             f"{self.output_path}/{self.rid}_{dim}_"
@@ -360,7 +361,7 @@ class NiftiBrain:
     ):
         filtered_brain = sobel_filter(self.original_brain)
         brain_img = nib.Nifti1Image(filtered_brain, self.affine)
-        return brain_img
+        return NiftiBrain(brain_img)
 
     def rescale_from_prev(self, m, t, a):
         self.original_brain, (m, t, a) = rescale_from_prev(
@@ -368,6 +369,12 @@ class NiftiBrain:
         )
         self.brain_img = nib.Nifti1Image(self.original_brain, self.affine)
         return m, t, a
+
+    def threshold(self):
+        original_brain_threshold = np.where(self.original_brain > 0, 1.0, -1.0)
+        return NiftiBrain(
+            nib.Nifti1Image(original_brain_threshold, self.affine)
+        )
 
     def __sub__(self, brain):
         assert np.all(brain.affine == self.affine) and np.all(
@@ -426,16 +433,17 @@ if __name__ == "__main__":
     # generate_mask_dir()
     bs = BrainSample()
     bs.plot_missing_montage()
-    # caxis = (
-    #     0,
-    #     2.5,
-    # )
-    # plot_slices("orig", caxis)
-    # plot_slices("noised")
-    # plot_slices("novel")
-    # plot_slices("vanilla")
-    # plot_slices("linear")
-    bs.plot_slice_diff(
-        dim="z", type_bg="vanilla", type_fg="novel", num=-85, caxis=(-1.5, 1.5)
+    caxis = (
+        0,
+        2.5,
     )
+    plot_slices("orig", caxis)
+    plot_slices("noised")
+    plot_slices("novel")
+    plot_slices("vanilla")
+    plot_slices("linear")
+    bs.plot_slice_diff(
+        dim="z", type_bg="vanilla", type_fg="novel", num=-85, caxis=(-1, 1)
+    )
+    # bs.plot_slice_edge(dim="z", type_="vanilla", num=-85, caxis=(-1.5, 1.5))
     # plot_sample_slices_all()
