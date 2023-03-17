@@ -1,6 +1,7 @@
 import os
 import re
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
@@ -201,6 +202,7 @@ class BrainSample(object):
         ax = plt.gca()
         ax.axis("off")
         ax.invert_yaxis()
+        plt.colorbar()
         plt.savefig(output_fi, dpi=300)
         plt.close()
 
@@ -431,7 +433,7 @@ def plot_sample_slices_all():
 if __name__ == "__main__":
     # generate_mask_dir()
     bs = BrainSample()
-    # bs.plot_missing_montage()
+    bs.plot_missing_montage()
     caxis = (
         0,
         2.5,
