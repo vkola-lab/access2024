@@ -169,13 +169,13 @@ class ChiSquare:
             )
             self.pairwise_str += (
                 "\tproportion ADNI vs NACC: {} vs {}\n".format(
-                    self.proportions.loc["ADNI", col].values[0],
-                    self.proportions.loc["NACC", col].values[0],
+                    self.proportions.loc["adni", col].values[0],
+                    self.proportions.loc["nacc", col].values[0],
                 )
             )
             self.pairwise_str += (
                 "\tcounts for ADNI vs NACC: {} vs {}\n".format(
-                    self.df.loc["ADNI", "All"], self.df.loc["NACC", "All"]
+                    self.df.loc["adni", "All"], self.df.loc["nacc", "All"]
                 )
             )
 
@@ -199,6 +199,8 @@ def pairwise_mannwhitneyu(df, col, group_col):
 
 def chisq(tbl, nreps=1):
     chi2, p, dof, expected = stats.chi2_contingency(tbl)
+    if any(expected.reshape((-1, 1)) < 5):
+        chi2, p, dof, expected = stats.chi2_contingency(tbl, correction=True)
     return {
         "chi2": chi2,
         "p": p * nreps,

@@ -1,0 +1,104 @@
+==================================================
+Progress == 0
+
+Omnibus for apoe	chi2=0.2790068359307162
+	p=0.8697900502870572
+	dof=2
+	expected_lt5=True
+
+apoe,col 0.0: 
+	chi2=0.008253707726055172
+	p=2.7828355339244952
+	dof=1
+	expected_lt5=False
+	proportion ADNI vs NACC: 0.6106194690265486 vs 0.6236559139784946
+	counts for ADNI vs NACC: 226 vs 93
+
+apoe,col 1.0: 
+	chi2=0.011099925961828495
+	p=2.7482795426772726
+	dof=1
+	expected_lt5=False
+	proportion ADNI vs NACC: 0.33185840707964603 vs 0.3333333333333333
+	counts for ADNI vs NACC: 226 vs 93
+
+apoe,col 2.0: 
+	chi2=0.06258487910801817
+	p=2.407368347342142
+	dof=1
+	expected_lt5=True
+	proportion ADNI vs NACC: 0.05752212389380531 vs 0.043010752688172046
+	counts for ADNI vs NACC: 226 vs 93
+    
+Omnibus for sex	chi2=0.5044542891767962
+	p=0.4775494573324981
+	dof=1
+	expected_lt5=False
+
+EDUC
+
+Wilcoxon Rank-Sum test: nacc<adni
+	stat=27837.0
+	p=0.005526035867963595
+	n_x=190
+	n_y=342
+	n_x_nan=0
+	n_y_nan=0
+AGE
+
+Wilcoxon Rank-Sum test: nacc>adni
+	stat=39960.5
+	p=1.0807740645289451e-05
+	n_x=190
+	n_y=342
+	n_x_nan=0
+	n_y_nan=0
+MMSE
+
+Wilcoxon Rank-Sum test: nacc<adni
+	stat=15734.0
+	p=6.531969514661296e-07
+	n_x=130
+	n_y=342
+	n_x_nan=60
+	n_y_nan=0
+==================================================
+Progress == 1
+
+Omnibus for apoe	chi2=3.491791911868771
+	p=0.17448858482860594
+	dof=2
+	expected_lt5=False
+
+Omnibus for sex	chi2=1.4745861183157547
+	p=0.22462349921497674
+	dof=1
+	expected_lt5=False
+
+EDUC
+
+Wilcoxon Rank-Sum test: nacc<adni
+	stat=27837.0
+	p=0.005526035867963595
+	n_x=190
+	n_y=342
+	n_x_nan=0
+	n_y_nan=0
+AGE
+
+Wilcoxon Rank-Sum test: nacc>adni
+	stat=39960.5
+	p=1.0807740645289451e-05
+	n_x=190
+	n_y=342
+	n_x_nan=0
+	n_y_nan=0
+MMSE
+
+Wilcoxon Rank-Sum test: nacc<adni
+	stat=15734.0
+	p=6.531969514661296e-07
+	n_x=130
+	n_y=342
+	n_x_nan=60
+	n_y_nan=0
