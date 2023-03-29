@@ -121,7 +121,7 @@
     "loss_metric":          "Standard",
     "data_dir":             "/data1/RGAN_Data/",
     "batch_size":           64,
-    "train_epochs":         10,
+    "train_epochs":         60,
     "lr":                   0.002,
     "dropout":              0.25,
     "step_size":            2,

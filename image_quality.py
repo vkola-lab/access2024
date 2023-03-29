@@ -20,21 +20,21 @@ class Image_Quality:
         self.eng = matlab.engine.start_matlab()
         # in_size = 121*145*121
 
-    def prepare_dataloader(self, data_dir, ext):
+    def prepare_dataloader(self, data_dir, ext, names):
         # maybe 'all' for all datasets????????
         stage = 'test'
         if ext:
             stage = 'all'
-        data = B_IQ_Data(data_dir, stage=stage, seed=1000, step_size=self.step_size, external=ext)
+        data = B_IQ_Data(data_dir, stage=stage, seed=1000, step_size=self.step_size, external=ext, names=names)
         return DataLoader(data, batch_size=1, shuffle=False)
         # return data
 
-    def iqa(self, metrics=['CNR', 'SNR', 'brisque', 'niqe', 'piqe', 'ssim'], names=['T', 'Z', 'G', 'CG_1'], datasets=['', '_E']):
+    def iqa(self, metrics=['CNR', 'SNR', 'brisque', 'niqe', 'piqe', 'ssim'], names=['T', 'I', 'Z', 'G', 'CG_1'], datasets=['', '_E']):
         data_root = '/data1/RGAN_Data/'
         iqa_dict = collections.defaultdict(list)
         for ds in datasets:
             data_dir = data_root
-            dataset = self.prepare_dataloader(data_dir, ds)
+            dataset = self.prepare_dataloader(data_dir, ds, names)
             mat = []
             for datas, datas_n in dataset:
                 for n, d, d_n in zip(names, datas, datas_n):
@@ -75,7 +75,7 @@ class Image_Quality:
             iqa_dict = json.load(json_file)
         
         metrics=['CNR', 'SNR', 'ssim', 'brisque', 'piqe']
-        names=['T', 'Z', 'G', 'CG_1']
+        names=['I', 'T', 'Z', 'G', 'CG_1']
         datasets=['', '_E']
         table = [metrics]
         for ds in datasets:
@@ -92,5 +92,5 @@ class Image_Quality:
 if __name__ == "__main__":
     print('Image Quality Analysis:')
     iq = Image_Quality()
-    # iq.iqa()
+    iq.iqa()
     iq.pr()

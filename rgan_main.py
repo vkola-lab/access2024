@@ -21,7 +21,8 @@ def RGAN(model_name, config, Wrapper):
     # net.train(epochs = config['train_epochs'])
     if not SWEEP:
         net.load(fixed=False)
-        net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True)
+        # net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True)
+        net.generate(datas=[net.train_dataloader, net.valid_dataloader, net.test_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True) #all & ext are same slices
 
 
 def main():

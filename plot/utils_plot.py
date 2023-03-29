@@ -24,18 +24,19 @@ def plot_curve(curve, xs, ys_mean, ys_upper, ys_lower, ax, color, hatch, alpha, 
         linestyle=line,
         lw=1.5, alpha=1)
 
-    if hatch:
-        p_fill = ax.fill_between(
-            xs, ys_lower, ys_upper,
-            alpha=alpha,
-            facecolor='none',
-            edgecolor=color,
-            hatch=hatch)
-    else:
-        p_fill = ax.fill_between(
-            xs, ys_lower, ys_upper,
-            alpha=alpha,
-            color=color)
+    if 'true':
+        if hatch:
+            p_fill = ax.fill_between(
+                xs, ys_lower, ys_upper,
+                alpha=alpha,
+                facecolor='none',
+                edgecolor=color,
+                hatch=hatch)
+        else:
+            p_fill = ax.fill_between(
+                xs, ys_lower, ys_upper,
+                alpha=alpha,
+                color=color)
 
     ax.set_xlim([-0.05, 1.05])
     ax.set_ylim([-0.05, 1.05])
@@ -59,10 +60,11 @@ def plot_curve(curve, xs, ys_mean, ys_upper, ys_lower, ax, color, hatch, alpha, 
     ax.axvline(0.0, linestyle='-', color='k', lw=1, zorder=1)
     ax.axhline(0.0, linestyle='-', color='k', lw=1, zorder=1)
 
+    # return p_mean
     return p_mean, p_fill
 
 
-def plot_legend(axes, crv_lgd_hdl, crv_info, neo_lgd_hdl):
+def plot_legend(axes, crv_lgd_hdl, crv_info, neo_lgd_hdl=None):
     m_name = list(crv_lgd_hdl.keys())
     ds_name = list(crv_lgd_hdl[m_name[0]].keys())
 
@@ -74,18 +76,21 @@ def plot_legend(axes, crv_lgd_hdl, crv_info, neo_lgd_hdl):
             hdl[ds] += neo_lgd_hdl[ds]
             val[ds] += ['Neurologist', 'Avg. Neurologist']
 
-    convert = {'A':"MRI", 'B':"NoI", 'C':"FUS"}
+    # convert = {'A':"MRI", 'B':"NoI", 'C':"FUS"}
+    mode_names = {'I':'Linear', 'T':'Orig', 'Z':'Diced', 'G':'G-VAN', 'CG_1':'G-NOV'}
 
     for ds in ds_name:
         for m in m_name:
             hdl[ds].append(crv_lgd_hdl[m][ds])
-            val[ds].append('{}: {:.3f}$\pm${:.3f}'.format(convert[m], crv_info[m][ds]['auc_mean'], crv_info[m][ds]['auc_std']))
+            val[ds].append('{}: {:.3f}$\pm${:.3f}'.format(mode_names[m], crv_info[m][ds]['auc_mean'], crv_info[m][ds]['auc_std']))
 
         axes[ds].legend(hdl[ds], val[ds],
-                        facecolor='w', prop={"weight":'bold', "size":17},  # frameon=False,
-                        bbox_to_anchor=(0.04, 0.04, 0.5, 0.5),
-                        loc='lower left')
-
+                        facecolor='w', prop={"weight":'bold', "size":10},  # frameon=False,
+                        bbox_to_anchor=(0.1, 0.1, 0.5, 0.5),
+                        loc='lower center')
+                        # facecolor='w', prop={"weight":'bold', "size":17},  # frameon=False,
+                        # bbox_to_anchor=(0.04, 0.04, 0.5, 0.5),
+                        # loc='lower left')
 
 def plot_neorologist(ax, mode, info):
     assert mode in ['roc', 'pr']

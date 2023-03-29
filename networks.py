@@ -75,6 +75,7 @@ class GAN_Wrapper:
     def prepare_dataloader(self, batch_size, data_dir):
         self.train_data = B_Data(data_dir, stage='train', seed=self.seed, step_size=self.config['step_size'])
         sample_weight, self.imbalanced_ratio = self.train_data.get_sample_weights()
+        # self.train_dataloader = DataLoader(self.train_data, batch_size=batch_size, shuffle=False, drop_last=False)
         self.train_dataloader = DataLoader(self.train_data, batch_size=batch_size, shuffle=False, drop_last=True)
 
         valid_data = B_Data(data_dir, stage='valid', seed=self.seed, step_size=self.config['step_size'])
@@ -274,13 +275,14 @@ class GAN_Wrapper:
         if ext:
             out_dirs += [out_dir + 'Z_E/', out_dir + 'G_E/', out_dir + 'T_E/']
         for o in out_dirs:
-            if os.path.isdir(o):
-                shutil.rmtree(o)
+            # if os.path.isdir(o):
+            #     shutil.rmtree(o)
             if not os.path.exists(o):
                 os.mkdir(o)
         return out_dirs
 
     def generate(self, datas, whole=False, samples=True, ext=False):
+        self.load(fixed=False)
         self.g.eval()
         if whole:
             #prepare locations for data generation!
@@ -288,32 +290,38 @@ class GAN_Wrapper:
 
         with torch.no_grad():
             for idx, data in enumerate(datas):
-                for inputs, targets, fname, _ in data:
-                    # here only use 1 patch
+                for inputs, targets, fnames, _ in data:
                     inputs, targets = inputs.to(device), targets.to(device)
-                    fname = os.path.basename(fname[0])
-                    g_out = self.g(inputs).cpu().numpy().squeeze()
-                    targets = targets.cpu().numpy().squeeze()
-
-                    inputs = inputs.cpu().numpy().squeeze()
+                    g_out = self.g(inputs).cpu().numpy()
+                    targets = targets.cpu().numpy()
+                    inputs = inputs.cpu().numpy()
                     out = inputs
-                    
-                    if samples:
-                        dir_name = self.output_dir+str(self.epoch)+'_'
-                        dir_name += fname
-                        self.visualize(out, g_out, targets, dir_name)
-                    if whole:
-                        # generate for all data
-                        img_z = nib.Nifti1Image(out, np.eye(4))
-                        img_z.to_filename(out_dirs[0+3*idx]+fname)
 
-                        img_g = nib.Nifti1Image(g_out, np.eye(4))
-                        img_g.to_filename(out_dirs[1+3*idx]+fname)
+                    for j in range(len(fnames)):
+                        fname = os.path.basename(fnames[j])
 
-                        img_t = nib.Nifti1Image(targets, np.eye(4))
-                        img_t.to_filename(out_dirs[2+3*idx]+fname)
-                    else:
-                        break
+                        if samples:
+                            dir_name = self.output_dir+str(self.epoch)+'_'
+                            dir_name += fname
+                            self.visualize(out[j].squeeze(), g_out[j].squeeze(), targets[j].squeeze(), dir_name)
+                        if whole:
+                            # generate for all data
+                            # print(out_dirs)
+                            # sys.exit()
+                            if idx < 3: #for ADNI
+                                dir_idx = 0
+                            else: # for NACC
+                                dir_idx = 3
+                            img_z = nib.Nifti1Image(out[j].squeeze(), np.eye(4))
+                            img_z.to_filename(out_dirs[0+dir_idx]+fname)
+
+                            img_g = nib.Nifti1Image(g_out[j].squeeze(), np.eye(4))
+                            img_g.to_filename(out_dirs[1+dir_idx]+fname)
+
+                            img_t = nib.Nifti1Image(targets[j].squeeze(), np.eye(4))
+                            img_t.to_filename(out_dirs[2+dir_idx]+fname)
+                        else:
+                            break
 
     def visualize(self, src, gen, tar, dir):
         plt.set_cmap("gray")
@@ -324,7 +332,6 @@ class GAN_Wrapper:
         offset = step//2
 
         for i in range(3):
-
             axs[i, 0].imshow(src[i*step[0]-offset[0], :, :], vmin=-1, vmax=1)
             axs[i, 0].set_title('Z: x_{}'.format(i), fontsize=25)
             axs[i, 0].axis('off')
@@ -987,7 +994,8 @@ class CNN_Wrapper:
         train_data = B_Data(data_dir, stage='train', seed=self.seed, step_size=self.config['step_size'], Pre=self.config['pretrain'])
         sample_weight, self.imbalanced_ratio = train_data.get_sample_weights()
         self.train_data = train_data
-        self.train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=False, drop_last=True)
+        # self.train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=False, drop_last=True)
+        self.train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=False, drop_last=False)
         # self.train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=False, pin_memory=False, drop_last=True)
 
         valid_data = B_Data(data_dir, stage='valid', seed=self.seed, step_size=self.config['step_size'], Pre=self.config['pretrain'])
@@ -1234,7 +1242,6 @@ class CNN_Wrapper:
         train on train, and test on the rest 3.
         need the dataloader
         need to have a switch
-        need to record and report
         '''
         self.load(dir=self.checkpoint_dir)
         self.cnn.eval()
@@ -1251,11 +1258,13 @@ class CNN_Wrapper:
             labels_all = []
             with torch.no_grad():
                 for _, inputs, _, labels in dl:
+                    return None
                     # here only use 1 patch
                     inputs, labels = inputs.to(device), labels.float().to(device)
                     preds_raw += self.cnn(inputs).view(-1).cpu()
                     preds_all += torch.round(self.cnn(inputs).view(-1)).cpu()
                     labels_all += labels.cpu()
+            # print(self.checkpoint_dir + 'raw_score_{}_{}.txt'.format(key, self.exp_idx))
             f = open(self.checkpoint_dir + 'raw_score_{}_{}.txt'.format(key, self.exp_idx), 'w')
             write_raw_score(f, preds_raw, labels_all)
             f.close()

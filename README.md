@@ -15,13 +15,13 @@ The model is trained on a dataset from ADNI and evaluated on an exteranl dataset
 MRI progression prediction performance:
 
 <p align="center">
-  <img src="plot/accuracy.png" width="695"/>
+  <img src="figures/accuracy.png" width="695"/>
 </p>
 
 Image quality metrics:
 
 <p align="center">
-<img src="plot/iqs.png" width="850"/>
+<img src="figures/iqs.png" width="850"/>
 </p>
 
 See the paper for additional information

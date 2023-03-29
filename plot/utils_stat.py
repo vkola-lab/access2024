@@ -88,7 +88,7 @@ def calc_performance_statistics(all_scores, y):
     return statistics
 
 
-def get_roc_info(y_list, y_score_list, weighted=1):
+def get_roc_info(y_list, y_score_list, weighted=0):
     fpr_pt = np.linspace(0, 1, 1001)
     tprs, aucs = [], []
     for y, y_score in zip(y_list, y_score_list):

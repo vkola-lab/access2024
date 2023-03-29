@@ -47,6 +47,21 @@ class B_Data(Dataset):
         tmp_f = []
         tmp_h = []
         tmp_d = []
+
+        if 1:
+            if '_E' in self.data_dir:
+                filename = './rids/' + 'NACC/' + 'glob' + '{}.txt'.format(seed)
+            else:
+                filename = './rids/' + 'ADNI/' + 'glob' + '{}.txt'.format(seed)
+            with open(filename, 'a') as f:
+                f.write(str(self.data_list)+'\n')
+            if '_E' in self.data_dir:
+                filename = './rids/' + 'NACC/' + 'fileIDs' + '{}.txt'.format(seed)
+            else:
+                filename = './rids/' + 'ADNI/' + 'fileIDs' + '{}.txt'.format(seed)
+            with open(filename, 'a') as f:
+                f.write(str(fileIDs)+'\n')
+
         for d in self.data_list:
             for f, h in zip(fileIDs, time_hit):
                 fname = os.path.basename(d)
@@ -61,10 +76,18 @@ class B_Data(Dataset):
 
         # print(len(tmp_f))
         l = len(self.data_list)
+
         split1 = int(l*ratio[0])
         split2 = int(l*(ratio[0]+ratio[1]))
         idxs = list(range(l))
         random.shuffle(idxs)
+        # print(idxs)
+        # print(split1, split2)
+        # print(len(idxs[:split1]))
+        # print(len(idxs[split1:split2]))
+        # print(len(idxs[split2:]))
+        # print(len(idxs[:split1])+len(idxs[split1:split2])+len(idxs[split2:]))
+        # sys.exit()
         if 'train' in stage:
             self.index_list = idxs[:split1]
         elif 'valid' in stage:
@@ -76,7 +99,20 @@ class B_Data(Dataset):
             # print(len(self.index_list))
         else:
             raise Exception('Unexpected Stage for Vit_Data!')
+
+        if 0:
+            temp_list = np.array(self.data_list)
+            out_list = list(temp_list[self.index_list])
+            if stage == 'valid':
+                print(len(idxs), out_list[:5], len(out_list))
+            if '_E' in self.data_dir:
+                filename = './rids/' + 'NACC/' + stage + '{}.txt'.format(seed)
+            else:
+                filename = './rids/' + 'ADNI/' + stage + '{}.txt'.format(seed)
+            with open(filename, 'a') as f:
+                f.write(str(out_list)+'\n')
         # print(len(self.index_list))
+        # print(len(idxs))
         # print((self.fileIDs[:10]))
         # sys.exit()
 
@@ -102,9 +138,22 @@ class B_Data(Dataset):
         # g_data[:,::self.step_size] = 0
         indices = list(range(g_data.shape[1]))
         random.shuffle(indices)
+
+        if 0:
+            # record removed slices, remember to set generate() input correspondingly.
+            filename = './slice_list/NACC/' + os.path.basename(self.data_list[idx]).replace('.nii', '.txt')
+            with open(filename, 'w') as f:
+                f.write(str(indices[:self.step_size]))
         g_data[:, indices[:self.step_size]] = 0
-        # print('g', g_data[:, :, 80, 80])
-        # sys.exit()
+
+        # if '2216' in os.path.basename(self.data_list[idx]).replace('.nii', ''):
+        #     print(idx)
+        #     print(self.index_list)
+        #     print(len(self.index_list))
+        #     print(indices)
+        #     print(os.path.basename(self.data_list[idx]).replace('.nii', ''))
+        #     # print('g', g_data[:, :, 80, 80])
+        #     sys.exit()
 
         return g_data, data, self.data_list[idx], hit
         # return data, obs, hit
@@ -119,11 +168,11 @@ class B_Data(Dataset):
 
 class B_IQ_Data(Dataset):
     #Brain data
-    def __init__(self, data_dir, stage, ratio=(0.8, 0.1, 0.1), seed=1000, step_size=10, external=False):
+    def __init__(self, data_dir, stage, ratio=(0.8, 0.1, 0.1), seed=1000, step_size=10, external=False, names=['T', 'Z', 'G', 'CG_1']):
         random.seed(seed)
 
         self.stage = stage
-        self.names=['T', 'Z', 'G', 'CG_1']
+        self.names = names
         if external:
             self.names = [n+'_E' for n in self.names]
         self.names = [n+'/' for n in self.names]
@@ -161,7 +210,7 @@ class B_IQ_Data(Dataset):
         l = len(self.data_list)
         split1 = int(l*ratio[0])
         split2 = int(l*(ratio[0]+ratio[1]))
-        idxs = list(range(len(fileIDs)))
+        idxs = list(range(l))
         random.shuffle(idxs)
         if 'train' in stage:
             self.index_list = idxs[:split1]
@@ -291,16 +340,17 @@ class ParcellationDataBinary(Dataset):
 
 
 if __name__ == "__main__":
-    # Data_dir_NACC = "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
-    # Data_dir_ADNI = "/data2/MRI_PET_DATA/processed_images_final_unused_cox/brain_stripped_unused_cox/"
-    # external_data = B_Data(Data_dir_ADNI, 'all', Pre=True)
+    Data_dir_NACC = "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
+    Data_dir_ADNI = "/data2/MRI_PET_DATA/processed_images_final_cox_noqc/brain_stripped_cox_noqc/"
+    # train_data = B_Data(Data_dir_ADNI, stage='all', step_size=60)
+    external_data = B_Data(Data_dir_NACC, stage='all', step_size=60, external=True)
+    data = external_data
+    for _ in data:
+        pass
+    print(len(data))
+    # external_data = ParcellationDataBinary(1, stage='all', dataset='ADNI', ratio=(0.6, 0.2, 0.2), add_age=False,
+    #              add_mmse=False, partitioner=retrieve_kfold_partition)
     # print(len(external_data))
-    # for _ in external_data:
-    #     print()
-    #     sys.exit()
-    external_data = ParcellationDataBinary(1, stage='all', dataset='ADNI', ratio=(0.6, 0.2, 0.2), add_age=False,
-                 add_mmse=False, partitioner=retrieve_kfold_partition)
-    print(len(external_data))
-    external_data = ParcellationDataBinary(1, stage='all', dataset='NACC', ratio=(0.6, 0.2, 0.2), add_age=False,
-                 add_mmse=False, partitioner=retrieve_kfold_partition)
-    print(len(external_data))
+    # external_data = ParcellationDataBinary(1, stage='all', dataset='NACC', ratio=(0.6, 0.2, 0.2), add_age=False,
+    #              add_mmse=False, partitioner=retrieve_kfold_partition)
+    # print(len(external_data))

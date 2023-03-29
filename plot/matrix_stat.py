@@ -23,7 +23,12 @@ def confusion_matrix(labels, scores):
 def get_metrics(matrix):
     TP, FP, TN, FN = matrix[1][1], matrix[1][0], matrix[0][0], matrix[0][1]
     TP, FP, TN, FN = float(TP), float(FP), float(TN), float(FN)
-    ACCU = (TP + TN) / (TP + TN + FP + FN)
+    # print(TP,TN,FP,FN)
+    try:
+        ACCU = (TP + TN) / (TP + TN + FP + FN)
+    except:
+        print(matrix)
+        sys.exit()
     Sens = TP / (TP + FN + 0.0000001)
     Spec = TN / (TN + FP + 0.0000001)
     F1 = 2*TP/(2*TP+FP+FN)
@@ -44,13 +49,13 @@ def stat_metric(matrices):
     # print('Sens {0:.4f}+/-{1:.4f}'.format(float(np.mean(Sens)), float(np.std(Sens))))
     # print('Spec {0:.4f}+/-{1:.4f}'.format(float(np.mean(Spec)), float(np.std(Spec))))
     # print('F1   {0:.4f}+/-{1:.4f}'.format(float(np.mean(F1)),   float(np.std(F1))))
-    MCC_text = 'MCC  {0:.4f}+/-{1:.4f}'.format(float(np.mean(MCC)), float(np.std(MCC)))
+    MCC_text = 'MCC  {0:.3f}+-{1:.3f}'.format(float(np.mean(MCC)), float(np.std(MCC)))
     group = (float(np.mean(Accu)), float(np.std(Accu)), float(np.mean(Sens)), float(np.std(Sens)), float(np.mean(Spec)), \
     float(np.std(Spec)), float(np.mean(F1)),   float(np.std(F1)), float(np.mean(MCC)), float(np.std(MCC)))
     return group, MCC_text
 
 if __name__ == "__main__":
-    names = ['T', 'Z', 'G', 'CG_1']
+    names = ['T', 'Z', 'G', 'CG_1', 'I']
     datas = ['test', 'ext']
     table = []
     table.append(['Model', 'Accuracy', 'Precision (weighted avg)', 'Recall (weighted avg)', 'F1-score (weighted avg)'])

@@ -13,7 +13,7 @@ from networks import RCGAN_Wrapper
 from networks import CNN_Wrapper
 from utils import read_json
 from tabulate import tabulate
-
+from make_figures import figures
 
 SWEEP = 0
 
@@ -77,11 +77,14 @@ def CNN_main():
 def RCGAN(model_name, config, Wrapper):
     print('Loss metric: {}'.format(config['loss_metric']))
     net = Wrapper(config, model_name, SWEEP)
+    if 1:
+        figures(['torchviz', 'hiddenlayer', 'netron', 'tensorboard'], net, net.train_dataloader)
     # net.train(epochs = config['train_epochs'])
-    if not SWEEP:
-        net.load(fixed=False)
-    net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True)
-    CNN_main()
+    # net.generate(datas=[net.train_dataloader, net.valid_dataloader, net.test_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True) #all & ext are same slices
+    # net.generate(datas=[net.ext_dataloader], whole=True, samples=True, ext=True) #all & ext are same slices
+    # net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True) #all & ext are same slices
+    # print('generated')
+    # CNN_main()
 
 
 def main():
