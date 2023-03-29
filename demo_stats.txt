@@ -1,0 +1,55 @@
+MEAN
+
+                        age       mmse       educ
+Dataset progress                                 
+adni    0         71.203540  28.234513  16.371681
+        1         72.956897  27.060345  15.939655
+nacc    0         73.484211  27.266667  15.705263
+        1         75.873684  25.872727  15.431579
+
+STD
+
+                        age      mmse      educ
+Dataset progress                               
+adni    0          7.303362  1.638274  2.582085
+        1          7.249723  1.848992  2.739522
+nacc    0         10.223670  1.968643  2.436018
+        1          9.385590  2.486725  2.922337
+
+N
+
+                  age  mmse  educ
+Dataset progress                 
+adni    0         226   226   226
+        1         116   116   116
+nacc    0          95    75    95
+        1          95    55    95Sex
+
+ADNI
+progress    0   1
+sex              
+F          97  49
+M         129  67
+
+NACC
+progress   0   1
+sex             
+F         36  49
+M         59  46
+
+APOE
+
+ADNI
+progress    0   1
+apoe             
+0.0       138  38
+1.0        75  58
+2.0        13  20
+
+NACC
+progress   0   1
+apoe            
+           2  12
+0.0       58  38
+1.0       31  33
+2.0        4  12
