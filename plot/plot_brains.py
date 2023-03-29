@@ -103,7 +103,7 @@ class BrainSample(object):
         "Z": "noised",
         "G": "vanilla",
         "CG_1": "novel",
-        "linear_interpolation": "linear",
+        # "linear_interpolation": "linear",
     }
     idx_rel_path = "slice_list/ADNI"
 
@@ -185,7 +185,7 @@ class BrainSample(object):
         slices = []
         for idx in np.arange(5, len(self.idx_missing) - 5, 10):
             curr_slices = []
-            for val in ["orig", "vanilla", "novel", "linear"]:
+            for val in ["orig", "vanilla", "novel"]:
                 if normalize:
                     self.brains[val].rescale()
                 curr_slices.append(
@@ -422,12 +422,12 @@ def plot_sample_slices_all():
     rids = list(map(lambda x: re.sub("masked_brain_mri_", "", x)[:-4], files))
     for rid in tqdm(rids):
         bs_ = BrainSample(rid=rid)
-        # bs_.plot_missing_montage(
-        #     output_fi=f"/Users/mromano/research/data/img/sample_slices_{rid}_z.png"
-        # )
-        bs_.plot_slice(
-            type_="linear",
+        bs_.plot_missing_montage(
+            output_fi=f"/Users/mromano/research/data/img/sample_slices_{rid}_z.png"
         )
+        # bs_.plot_slice(
+        #     type_="linear",
+        # )
 
 
 if __name__ == "__main__":
@@ -438,10 +438,10 @@ if __name__ == "__main__":
         0,
         2.5,
     )
-    # plot_slices("orig", caxis)
-    # plot_slices("noised")
-    # plot_slices("novel")
-    # plot_slices("vanilla")
+    plot_slices("orig", caxis)
+    plot_slices("noised")
+    plot_slices("novel")
+    plot_slices("vanilla")
     # plot_slices("linear")
     bs.plot_slice_diff(
         dim="z", type_bg="vanilla", type_fg="novel", num=-85, caxis=(-1.5, 1.5)

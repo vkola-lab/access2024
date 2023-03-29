@@ -8,10 +8,12 @@ Split up data into progress vs non-progress; get stats for the following:
 5. educ (# years)
 """
 
+import itertools
 from typing import Literal
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 from dataloader import Dataset, ParcellationDataBinary
 
@@ -57,7 +59,9 @@ def load_dataset_as_df(dataset: DatasetName) -> pd.DataFrame:
     fields_of_interest = ["age", "mmse", "sex", "apoe", "educ", "progress"]
     labels = ds_.get_labels()
     data = ds_.get_data()
-    data_of_interest = np.concatenate([data[:, -5:], np.expand_dims(labels, 1)], axis=1)
+    data_of_interest = np.concatenate(
+        [data[:, -5:], np.expand_dims(labels, 1)], axis=1
+    )
     df_ = pd.DataFrame(data_of_interest, columns=fields_of_interest)
     return df_
 
@@ -87,9 +91,187 @@ def demo_stats(df: pd.DataFrame) -> None:
     """
     with open("demo_stats.txt", "w") as fi:
         fi.write("MEAN\n\n")
-        fi.write(str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.mean(x))))
+        fi.write(
+            str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.mean(x)))
+        )
         fi.write("\n\nSTD\n\n")
-        fi.write(str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.std(x))))
+        fi.write(
+            str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.std(x)))
+        )
+        fi.write("\n\nN\n\n")
+        fi.write(
+            str(
+                df.groupby(["Dataset", "progress"]).agg(
+                    lambda x: np.sum([~np.isnan(y) for y in x])
+                )
+            )
+        )
+        fi.write("Sex")
+        adni_ = df.query("Dataset == 'adni'").copy()
+        nacc_ = df.query("Dataset == 'nacc'").copy()
+        fi.write("\n\nADNI\n")
+        fi.write(str(pd.crosstab(adni_["sex"], adni_["progress"])))
+        fi.write("\n\nNACC\n")
+        fi.write(str(pd.crosstab(nacc_["sex"], nacc_["progress"])))
+
+        fi.write("\n\nAPOE")
+        fi.write("\n\nADNI\n")
+        fi.write(str(pd.crosstab(adni_["apoe"], adni_["progress"])))
+        fi.write("\n\nNACC\n")
+        fi.write(str(pd.crosstab(nacc_["apoe"], nacc_["progress"])))
+
+
+def demo_stats_quant():
+    raise NotImplementedError
+
+
+class ChiSquare:
+    def __init__(self, cross_tab):
+        self.df = cross_tab
+        self.columns = np.setdiff1d(list(cross_tab.columns), ["All"])
+        self.rows = np.setdiff1d(list(cross_tab.index), ["All"])
+        self.columns_name = cross_tab.columns.name
+        assert len(self.rows) == 2
+        self.omnibus_st = chisq(cross_tab.loc[self.rows, self.columns])
+        self.omnibus_str = (
+            f"Omnibus for {self.columns_name}"
+            + _stringify_chisq(self.omnibus_st)
+        )
+        proportions = self.df.loc[self.rows, self.columns].divide(
+            self.df.loc[self.rows, "All"], axis="rows"
+        )
+        self.proportions = pd.melt(
+            proportions.reset_index(),
+            id_vars="Dataset",
+            value_name="Proportion",
+        ).set_index(["Dataset", self.columns_name])
+        self.chisq_pairwise()
+
+    def chisq_pairwise(self):
+        self.pairwise_stats = {}
+        self.pairwise_str = ""
+        all_values = self.df.loc[self.rows, "All"].to_numpy().reshape((-1, 1))
+        if len(self.columns) < 3:
+            return
+        for col in self.columns:
+            current_col = (
+                self.df.loc[self.rows, col].to_numpy().reshape((-1, 1))
+            )
+            current_tbl = np.concatenate(
+                [current_col, all_values - current_col], axis=1
+            )
+            self.pairwise_stats[col] = chisq(
+                current_tbl, nreps=len(self.columns)
+            )
+            self.pairwise_str += (
+                f"\n{self.columns_name},col {str(col)}: \n"
+                + _stringify_chisq(self.pairwise_stats[col])
+            )
+            self.pairwise_str += (
+                "\tproportion ADNI vs NACC: {} vs {}\n".format(
+                    self.proportions.loc["ADNI", col].values[0],
+                    self.proportions.loc["NACC", col].values[0],
+                )
+            )
+            self.pairwise_str += (
+                "\tcounts for ADNI vs NACC: {} vs {}\n".format(
+                    self.df.loc["ADNI", "All"], self.df.loc["NACC", "All"]
+                )
+            )
+
+    def __str__(self):
+        return self.omnibus_str + "\n" + self.pairwise_str
+
+
+def pairwise_mannwhitneyu(df, col, group_col):
+    factors = pd.unique(df[group_col])
+    n_pairs = len(list(itertools.combinations(factors, 2)))
+    factor_pairs = itertools.combinations(factors, 2)
+    mwu_output_strings = []
+    for pair in factor_pairs:
+        pair_1, pair_2 = pair
+        x = df.loc[df[group_col] == pair_1, col].copy().to_numpy()
+        y = df.loc[df[group_col] == pair_2, col].copy().to_numpy()
+        mwu = MannWhitneyU(x, y, pair_1, pair_2, n_comparisons=n_pairs)
+        mwu_output_strings.append(str(mwu))
+    return mwu_output_strings
+
+
+def chisq(tbl, nreps=1):
+    chi2, p, dof, expected = stats.chi2_contingency(tbl)
+    return {
+        "chi2": chi2,
+        "p": p * nreps,
+        "dof": dof,
+        "expected_lt5": any(expected.reshape((-1, 1)) < 5),
+    }
+
+
+def _stringify_chisq(chisq_dict):
+    return "".join(
+        [f"\t{str(key)}={value}\n" for key, value in chisq_dict.items()]
+    )
+
+
+class MannWhitneyU:
+    def __init__(self, x, y, x_label, y_label, n_comparisons=1):
+        self.x, self.y = x.reshape((-1, 1)), y.reshape((-1, 1))
+        self.x_label, self.y_label = x_label, y_label
+        self.n_comparisons = n_comparisons
+        self.mannwhitneyu()
+
+    def mannwhitneyu(self):
+        x, y = self.x, self.y
+        x_nan = sum(np.isnan(x))[0]
+        n_x = sum(~np.isnan(x))[0]
+        y_nan = sum(np.isnan(y))[0]
+        n_y = sum(~np.isnan(y))[0]
+        _, p_less = stats.mannwhitneyu(
+            x[~np.isnan(x)], y[~np.isnan(y)], alternative="less"
+        )
+        stat, p_greater = stats.mannwhitneyu(
+            x[~np.isnan(x)], y[~np.isnan(y)], alternative="greater"
+        )
+        if p_less * 2 * self.n_comparisons < 0.05:
+            output_str = "<"
+        elif p_greater * 2 * self.n_comparisons < 0.05:
+            output_str = ">"
+        else:
+            output_str = "="
+        output_str = f"{self.x_label}{output_str}{self.y_label}"
+        self.stats = {
+            "stat": stat,
+            "p": min([min([p_less, p_greater]) * 2 * self.n_comparisons, 1]),
+            "n_x": n_x,
+            "n_y": n_y,
+            "n_x_nan": x_nan,
+            "n_y_nan": y_nan,
+        }
+        self.string = output_str
+
+    def __str__(self):
+        str_list = [f"Wilcoxon Rank-Sum test: {self.string}\n"] + [
+            f"\t{key}={value}\n" for key, value in self.stats.items()
+        ]
+        return "".join(str_list)
+
+
+def demo_stats_ttest(df: pd.DataFrame) -> None:
+    """
+    Retrieve demographic statistics, both mean / std for each and cross tabulated data for sex
+
+    Args:
+        df (pd.DataFrame): output from stack_datasets
+    """
+    with open("demo_stats.txt", "w") as fi:
+        fi.write("MEAN\n\n")
+        fi.write(
+            str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.mean(x)))
+        )
+        fi.write("\n\nSTD\n\n")
+        fi.write(
+            str(df.groupby(["Dataset", "progress"]).agg(lambda x: np.std(x)))
+        )
         fi.write("\n\nN\n\n")
         fi.write(
             str(
