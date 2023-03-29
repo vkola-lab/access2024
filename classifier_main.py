@@ -53,7 +53,8 @@ def CNN(model_name, config, Wrapper, num_exps, train=True):
         reports[2].append(net.test_b(out=True,key='train'))
         reports[3].append(net.test_b(out=True,key='valid'))
     ress = [[model_name], [model_name+'_E'], [model_name+'_Train'], [model_name+'_Valid']]
-    print(ress)
+    # print(ress)
+    # print(reports)
 
     for rep, res in zip(reports, ress):
         # break

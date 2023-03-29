@@ -1667,7 +1667,7 @@ class CNN_Wrapper:
             labels_all = []
             with torch.no_grad():
                 for _, inputs, _, labels in dl:
-                    return None
+                    # return None
                     # here only use 1 patch
                     inputs, labels = inputs.to(device), labels.float().to(device)
                     preds_raw += self.cnn(inputs).view(-1).cpu()
