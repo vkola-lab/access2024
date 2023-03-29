@@ -132,11 +132,20 @@ class ChiSquare:
         self.rows = np.setdiff1d(list(cross_tab.index), ["All"])
         self.columns_name = cross_tab.columns.name
         assert len(self.rows) == 2
-        self.omnibus_st = chisq(cross_tab.loc[self.rows, self.columns])
-        self.omnibus_str = (
-            f"Omnibus for {self.columns_name}"
-            + _stringify_chisq(self.omnibus_st)
-        )
+        if len(self.columns) == 2:
+            self.omnibus_st = fishertest(
+                cross_tab.loc[self.rows, self.columns]
+            )
+            self.omnibus_str = (
+                f"Fisher test for {self.columns_name}"
+                + _stringify_fisher(self.omnibus_st)
+            )
+        else:
+            self.omnibus_st = chisq(cross_tab.loc[self.rows, self.columns])
+            self.omnibus_str = (
+                f"Omnibus for {self.columns_name}"
+                + _stringify_chisq(self.omnibus_st)
+            )
         proportions = self.df.loc[self.rows, self.columns].divide(
             self.df.loc[self.rows, "All"], axis="rows"
         )
@@ -160,12 +169,12 @@ class ChiSquare:
             current_tbl = np.concatenate(
                 [current_col, all_values - current_col], axis=1
             )
-            self.pairwise_stats[col] = chisq(
+            self.pairwise_stats[col] = fishertest(
                 current_tbl, nreps=len(self.columns)
             )
             self.pairwise_str += (
                 f"\n{self.columns_name},col {str(col)}: \n"
-                + _stringify_chisq(self.pairwise_stats[col])
+                + _stringify_fisher(self.pairwise_stats[col])
             )
             self.pairwise_str += (
                 "\tproportion ADNI vs NACC: {} vs {}\n".format(
@@ -212,6 +221,21 @@ def chisq(tbl, nreps=1):
 def _stringify_chisq(chisq_dict):
     return "".join(
         [f"\t{str(key)}={value}\n" for key, value in chisq_dict.items()]
+    )
+
+
+def fishertest(tbl, nreps=1):
+    st, p = stats.fisher_exact(tbl)
+
+    return {
+        "st": st,
+        "p": p * nreps,
+    }
+
+
+def _stringify_fisher(fisher_dict):
+    return "".join(
+        [f"\t{str(key)}={value}\n" for key, value in fisher_dict.items()]
     )
 
 
