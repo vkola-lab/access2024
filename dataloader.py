@@ -8,7 +8,7 @@ import json
 import os
 import random
 import sys
-from typing import Literal
+# from typing import Literal
 
 import nibabel as nib
 import numpy as np
@@ -87,8 +87,11 @@ class B_Data(Dataset):
         self.data_list = tmp_d
         self.time_hit = tmp_h
         self.fileIDs = tmp_f  # Note: this only for csv generation not used for data retrival
-
-        # print(len(tmp_f))
+        print(np.sum(self.time_hit))
+        print(len(tmp_d))
+        print(data_dir)
+        print(len(tmp_f))
+        sys.exit()
         l = len(self.data_list)
         split1 = int(l * ratio[0])
         split2 = int(l * (ratio[0] + ratio[1]))
@@ -418,11 +421,13 @@ class ParcellationDataBinary(Dataset):
 if __name__ == "__main__":
     Data_dir_NACC = "/data2/MRI_PET_DATA/processed_images_final_cox_test/brain_stripped_cox_test/"
     Data_dir_ADNI = "/data2/MRI_PET_DATA/processed_images_final_cox_noqc/brain_stripped_cox_noqc/"
-    # train_data = B_Data(Data_dir_ADNI, stage='all', step_size=60)
-    external_data = B_Data(Data_dir_NACC, stage='all', step_size=60, external=True)
-    data = external_data
-    for _ in data:
-        pass
+    train_data = B_Data(Data_dir_ADNI, stage='all', step_size=60)
+    # self.train_data = B_Data(data_dir, stage="train", seed=self.seed, step_size=self.config["step_size"])
+    # external_data = B_Data(Data_dir_NACC, stage='all', step_size=60, external=True)
+    data = train_data
+    # data = external_data
+    # for _ in data:
+    #     pass
     print(len(data))
     # external_data = ParcellationDataBinary(1, stage='all', dataset='ADNI', ratio=(0.6, 0.2, 0.2), add_age=False,
     #              add_mmse=False, partitioner=retrieve_kfold_partition)

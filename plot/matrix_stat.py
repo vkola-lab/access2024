@@ -94,17 +94,17 @@ def compute_mlp_matrix_stat():
 
 
 if __name__ == "__main__":
-    # names = ['T', 'Z', 'G', 'CG_1']
-    # datas = ['test', 'ext']
-    # table = []
-    # table.append(['Model', 'Accuracy', 'Precision (weighted avg)', 'Recall (weighted avg)', 'F1-score (weighted avg)'])
-    # for n in names:
-    #     for d in datas:
-    #         Matrix = []
-    #         for i in range(5):
-    #             folder = 'CNN_Standard_'+n+str(i)
-    #             labels, scores = read_raw_score('../checkpoint_dir/'+folder+'/raw_score_{}_{}.txt'.format(d, i))
-    #             Matrix.append(confusion_matrix(labels, scores))
-    #         _, txt = stat_metric(Matrix)
-    #         print(n, d, txt)
+    names = ['T', 'Z', 'G', 'CG_1']
+    datas = ['test', 'ext']
+    table = []
+    table.append(['Model', 'Accuracy', 'Precision (weighted avg)', 'Recall (weighted avg)', 'F1-score (weighted avg)'])
+    for n in names:
+        for d in datas:
+            Matrix = []
+            for i in range(5):
+                folder = 'CNN_Standard_'+n+str(i)
+                labels, scores = read_raw_score('../checkpoint_dir/'+folder+'/raw_score_{}_{}.txt'.format(d, i))
+                Matrix.append(confusion_matrix(labels, scores))
+            _, txt = stat_metric(Matrix)
+            print(n, d, txt)
     compute_mlp_matrix_stat()

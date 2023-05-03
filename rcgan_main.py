@@ -77,10 +77,12 @@ def CNN_main():
 def RCGAN(model_name, config, Wrapper):
     print('Loss metric: {}'.format(config['loss_metric']))
     net = Wrapper(config, model_name, SWEEP)
-    if 1:
+    if 0:
         figures(['torchviz', 'hiddenlayer', 'netron', 'tensorboard'], net, net.train_dataloader)
     # net.train(epochs = config['train_epochs'])
-    # net.generate(datas=[net.train_dataloader, net.valid_dataloader, net.test_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True) #all & ext are same slices
+    net.generate(datas=[net.train_dataloader, net.valid_dataloader, net.test_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True) #all & ext are same slices
+    print(len(net.all_dataloader))
+    print(len(net.ext_dataloader))
     # net.generate(datas=[net.ext_dataloader], whole=True, samples=True, ext=True) #all & ext are same slices
     # net.generate(datas=[net.all_dataloader, net.ext_dataloader], whole=True, samples=True, ext=True) #all & ext are same slices
     # print('generated')

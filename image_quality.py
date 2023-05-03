@@ -75,7 +75,8 @@ class Image_Quality:
             iqa_dict = json.load(json_file)
         
         metrics=['CNR', 'SNR', 'ssim', 'brisque', 'piqe']
-        names=['I', 'T', 'Z', 'G', 'CG_1']
+        # names=['I', 'T', 'Z', 'G', 'CG_1']
+        names=['T', 'Z', 'G', 'CG_1']
         datasets=['', '_E']
         table = [metrics]
         for ds in datasets:
@@ -92,5 +93,5 @@ class Image_Quality:
 if __name__ == "__main__":
     print('Image Quality Analysis:')
     iq = Image_Quality()
-    iq.iqa()
+    # iq.iqa()
     iq.pr()
