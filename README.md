@@ -73,7 +73,7 @@ See the paper for additional information
 
 ## Data Preprocessing
 
-The data preprocessing follows a similar procedure as in this work: ()
+The data preprocessing follows a similar procedure as in this work: (https://github.com/vkola-lab/mri-surv-dev)
 
 ## Hyper-parameter Tuning
 
