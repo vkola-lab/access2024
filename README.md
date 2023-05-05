@@ -12,7 +12,7 @@ This is the repo for the model proposed in the paper. Briefly, the model perform
 
 The model is trained on a dataset from ADNI and evaluated on an exteranl dataset from NACC.
 
-MRI progression prediction performance:
+Image quality metrics:
 
 | Input Images | CNR | SNR | SSIM | BRISQUE | PIQE |
 |--------------|-----|-----|------|---------|------|
@@ -27,11 +27,29 @@ MRI progression prediction performance:
 | GAN-VAN | 2.193±0.359 | 1.821±0.230 | 0.523±0.105 | 42.563±1.128 | 72.133±4.024 |
 | GAN-NOV | 1.790±0.363 | 1.432±0.534 | 0.553±0.116 | 42.505±1.066 | 68.176±2.079 |
 
-Image quality metrics:
 
-<p align="center">
-<img src="figures/iqs.png" width="850"/>
-</p>
+MRI progression prediction performance:
+
+## Classifier performance
+
+### (a) Results on ADNI cohort test partition
+
+| Input Images | Accuracy | Precision | F1-score | MCC |
+| ------------ | -------- | --------- | -------- | --- |
+| Original     | 0.794±0.033 | 0.795±0.032 | 0.785±0.036 | 0.516±0.081 |
+| Diced        | 0.703±0.064 | 0.681±0.082 | 0.665±0.080 | 0.254±0.145 |
+| GAN-VAN      | **0.709±0.069** | **0.711±0.084** | 0.653±0.079 | 0.270±0.130 |
+| GAN-NOV      | **0.709±0.042** | 0.697±0.062 | **0.694±0.060** | **0.303±0.133** |
+
+### (b) Results on NACC cohort
+
+| Input Images | Accuracy | Precision | F1-score | MCC |
+| ------------ | -------- | --------- | -------- | --- |
+| Original     | 0.675±0.006 | 0.683±0.004 | 0.671±0.007 | 0.358±0.010 |
+| Diced        | 0.597±0.021 | 0.624±0.021 | 0.573±0.028 | 0.219±0.042 |
+| GAN-VAN      | 0.589±0.025 | 0.625±0.021 | 0.556±0.039 | 0.211±0.047 |
+| GAN-NOV      | **0.640±0.017** | **0.650±0.014** | **0.634±0.019** | **0.289±0.030** |
+
 
 See the paper for additional information
 
