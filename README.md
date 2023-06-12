@@ -1,6 +1,6 @@
 # Competitive deep learning for enhancing image reconstruction and classification of individuals with stable and progressive mild cognitive impairment
 
-This work is to submit to IEEE.
+Under review
 
 # Introduction
 
