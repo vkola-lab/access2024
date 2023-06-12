@@ -1,4 +1,4 @@
-# Competitive deep learning for enhancing image reconstruction and classification of individuals with stable and progressive mild cognitive impairment
+# Adversarial learning for MRI reconstruction and classification of cognitively impaired individuals
 
 Under review
 
