@@ -271,7 +271,7 @@ class BrainSample(object):
         if output_fi == "":
             output_fi = "figure3_" + str(self.rid) + ".eps"
 
-        for idx in np.arange(5, len(self.idx_missing) - 5, 10):
+        for idx in np.arange(15, len(self.idx_missing) - 5, 10):
             curr_slices = []
             curr_ventricle_slices = []
             curr_background_slices = []
@@ -494,12 +494,11 @@ def _sample_rids(n_samples: int) -> list[str]:
 
 if __name__ == "__main__":
     # generate_mask_dir()
-    rid_list = _sample_rids(10)
+    rid_list = _sample_rids(8)
     for rid in rid_list:
         bs = BrainSample(rid=rid)
         # bs.plot_brain_hist()
         bs.plot_missing_montage_masked(normalize=True)
-        break
         # caxis = (
         #     0,
         #     2.5,
