@@ -87,11 +87,11 @@ class B_Data(Dataset):
         self.data_list = tmp_d
         self.time_hit = tmp_h
         self.fileIDs = tmp_f  # Note: this only for csv generation not used for data retrival
-        print(np.sum(self.time_hit))
-        print(len(tmp_d))
-        print(data_dir)
-        print(len(tmp_f))
-        sys.exit()
+        # print(np.sum(self.time_hit))
+        # print(len(tmp_d))
+        # print(data_dir)
+        # print(len(tmp_f))
+        # sys.exit()
         l = len(self.data_list)
         split1 = int(l * ratio[0])
         split2 = int(l * (ratio[0] + ratio[1]))
@@ -164,8 +164,9 @@ class B_Data(Dataset):
         #     # print('g', g_data[:, :, 80, 80])
         #     sys.exit()
 
-        return g_data, data, self.data_list[idx], hit
-        # return data, obs, hit
+        # return g_data, data, self.data_list[idx], hit
+        rid = os.path.basename(self.data_list[idx]).replace('.nii', '')
+        return rid, data, self.data_list[idx], hit #use this for shap analysis
 
     def get_sample_weights(self):
         num_classes = len(set(self.time_hit))
@@ -186,6 +187,7 @@ class B_IQ_Data(Dataset):
         seed=1000,
         step_size=10,
         external=False,
+        names=None,#not used for now
     ):
         random.seed(seed)
 

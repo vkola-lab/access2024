@@ -71,7 +71,7 @@
     "loss_metric":          "Standard",
     "data_dir":             "/data2/MRI_PET_DATA/processed_images_final_cox_noqc/brain_stripped_cox_noqc/",
     "Data_dir2":            "/data2/MRI_PET_DATA/processed_images_final_cox_noqc/brain_stripped_rigid_cox_noqc/",
-    "out_dir":              "/data1/RGAN_Data_temp_delete/",
+    "out_dir":              "/data1/RGAN_Data/",
     "train_epochs":         20,
     "batch_size":           3,
     "lr_c":                 0.0034285423014827573,

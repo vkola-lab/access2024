@@ -396,32 +396,46 @@ class _CNN(nn.Module):
         self.bn6 = nn.BatchNorm3d(1)
 
         # self.a = nn.ReLU()
-        self.dr = nn.Dropout(config["dropout"])
-        self.a = nn.LeakyReLU()
+        self.dr1 = nn.Dropout(config["dropout"])
+        self.a1 = nn.LeakyReLU()
+
+        self.dr2 = nn.Dropout(config["dropout"])
+        self.a2 = nn.LeakyReLU()
+
+        self.dr3 = nn.Dropout(config["dropout"])
+        self.a3 = nn.LeakyReLU()
+
+        self.dr4 = nn.Dropout(config["dropout"])
+        self.a4 = nn.LeakyReLU()
+
+        self.dr5 = nn.Dropout(config["dropout"])
+        self.a5 = nn.LeakyReLU()
+        # self.dr = nn.Dropout(config["dropout"]) #not for shap
+        # self.a = nn.LeakyReLU()
         self.ao = nn.Sigmoid()
 
     def forward(self, x):
         # print('first', x.shape)
         x = self.conv1(x)
-        # print(x.shape)
         x = self.bn1(x)
-        x = self.dr(self.a(x))
+        x = self.dr1(self.a1(x))
+
         x = self.conv2(x)
-        # print(x.shape)
         x = self.bn2(x)
-        x = self.dr(self.a(x))
+        x = self.dr2(self.a2(x))
+
         x = self.conv3(x)
-        # print(x.shape)
         x = self.bn3(x)
-        x = self.dr(self.a(x))
+        x = self.dr3(self.a3(x))
+
         x = self.conv4(x)
-        # print(x.shape)
         x = self.bn4(x)
-        x = self.dr(self.a(x))
+        x = self.dr4(self.a4(x))
+
         x = self.conv5(x)
-        # print(x.shape)
         x = self.bn5(x)
-        x = self.dr(self.a(x))
+        x = self.dr5(self.a5(x))
+
         # print('last first', x.shape)
         x = self.conv6(x)
         # x = self.bn6(x)

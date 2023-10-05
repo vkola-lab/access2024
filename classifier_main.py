@@ -1,5 +1,5 @@
 # main file for CNN classifier
-# Updated: 12/28/2022
+# Updated: 9/16/2023
 # Status: OK
 # CUBLAS_WORKSPACE_CONFIG=:4096:8 python classifier_main.py
 
@@ -18,6 +18,26 @@
 # CNN_Standard_CG_1    0.709+-0.042  0.697+-0.062                0.709+-0.042             0.694+-0.060
 # CNN_Standard_CG_1_E  0.640+-0.017  0.650+-0.014                0.640+-0.017             0.634+-0.019
 # ----------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------gn
+# Model                Accuracy      Precision (weighted avg)    Recall (weighted avg)    F1-score (weighted avg)
+# -------------------  ------------  --------------------------  -----------------------  -------------------------
+# CNN_Standard_T       0.743+-0.057  0.751+-0.067                0.743+-0.057             0.732+-0.060
+# CNN_Standard_T_E     0.647+-0.010  0.656+-0.006                0.647+-0.010             0.642+-0.013
+# CNN_Standard_Z       0.651+-0.042  0.660+-0.036                0.651+-0.042             0.636+-0.049
+# CNN_Standard_Z_E     0.566+-0.039  0.559+-0.057                0.566+-0.039             0.540+-0.089
+# CNN_Standard_G       0.674+-0.084  0.641+-0.131                0.674+-0.084             0.641+-0.098
+# CNN_Standard_G_E     0.567+-0.039  0.578+-0.043                0.567+-0.039             0.538+-0.066
+# CNN_Standard_CG_1    0.714+-0.097  0.719+-0.118                0.714+-0.097             0.706+-0.100
+# CNN_Standard_CG_1_E  0.608+-0.051  0.612+-0.047                0.608+-0.051             0.599+-0.063
+# ----------------------------------------------------------------------------------------------------
+# T test MCC  0.4117+/-0.1333
+# T ext MCC  0.3032+/-0.0154
+# Z test MCC  0.2061+/-0.1117
+# Z ext MCC  0.1284+/-0.0895
+# G test MCC  0.1844+/-0.2395
+# G ext MCC  0.1448+/-0.0810
+# CG_1 test MCC  0.3402+/-0.2577
+# CG_1 ext MCC  0.2207+/-0.0982
 
 
 import sys
@@ -52,6 +72,7 @@ def CNN(model_name, config, Wrapper, num_exps, train=True):
         reports[1].append(net.test_b(out=True,key='ext'))
         reports[2].append(net.test_b(out=True,key='train'))
         reports[3].append(net.test_b(out=True,key='valid'))
+        net.shap()
     ress = [[model_name], [model_name+'_E'], [model_name+'_Train'], [model_name+'_Valid']]
     # print(ress)
     # print(reports)

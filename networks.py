@@ -8,6 +8,7 @@ import os, sys
 import glob
 import shutil
 import wandb
+import shap
 
 import torch.nn as nn
 import torch.optim as optim
@@ -23,7 +24,8 @@ from sksurv.metrics import integrated_brier_score, concordance_index_censored
 from scipy import interpolate
 
 from dataloader import B_Data, ParcellationDataBinary
-from models import _G_Model, _D_Model, _Gs_Model, _CNN, _MLP_Surv
+from models import _G_Model, _D_Model, _CNN
+# from models import _G_Model, _D_Model, _Gs_Model, _CNN, _MLP_Surv
 from utils import write_raw_score
 from loss_functions import sur_loss
 
@@ -178,7 +180,10 @@ class GAN_Wrapper:
         start.record()
 
         self.epoch = 0
-        self.generate([self.valid_dataloader])
+        try:
+            self.generate([self.valid_dataloader])
+        except:
+            print('not module available, skip epoch 0 generation')
 
         d_gs, d_rs = [], []
         for self.epoch in range(1, epochs + 1):
@@ -573,7 +578,10 @@ class RCGAN_Wrapper(GAN_Wrapper):
         start.record()
 
         self.epoch = 0
-        self.generate([self.valid_dataloader])
+        try:
+            self.generate([self.valid_dataloader])
+        except:
+            print('no trained model available, skip epoch 0 evaluation.')
 
         d_gs, d_rs = [], []
         for self.epoch in range(1, epochs + 1):
@@ -790,7 +798,7 @@ class RCGAN_Wrapper(GAN_Wrapper):
                 os.mkdir(o)
         return out_dirs
 
-
+'''
 class RCGANs_Wrapper:
     def __init__(self, config, model_name, SWEEP=False):
         self.SWEEP = SWEEP
@@ -1253,7 +1261,7 @@ class RCGANs_Wrapper:
             axs[i, 8].axis("off")
         plt.savefig(dir.replace("nii", "png"), dpi=150)
         plt.close()
-
+'''
 
 class CNN_Wrapper:
     def __init__(self, config, model_name, exp_idx):
@@ -1745,6 +1753,49 @@ class CNN_Wrapper:
         self.external_data = external_data
         self.ext_dataloader = DataLoader(self.external_data, batch_size=1)
 
+    def shap(self):
+        dir = glob.glob(self.checkpoint_dir + '*.pth')
+        self.cnn.load_state_dict(torch.load(dir[0]))
+        self.cnn.train(False)
+        # with torch.no_grad():
+        background_dataloader = DataLoader(self.train_data, batch_size=6)
+        torch.use_deterministic_algorithms(False)
+        # for _, data, obss, hits in background_dataloader:
+        for _, inputs, _, labels  in background_dataloader:
+            # preds = self.model(data.cuda()).cpu()
+            # preds_prob = np.concatenate((np.ones((preds.shape[0],1)), np.cumprod(preds.numpy(), axis=1)), axis=1)
+            # print(preds.shape)
+            e = shap.DeepExplainer(self.cnn, inputs.cuda())
+            out_dir = '/data1/RGAN_Data/shap/'+self.model_name
+            if os.path.isdir(out_dir):
+                shutil.rmtree(out_dir)
+            if not os.path.exists(out_dir):
+                os.mkdir(out_dir)
+            # note: NACC only!
+            ext_dl = DataLoader(self.external_data, batch_size=1, shuffle=False)
+
+            for rid, inputs, _, labels in ext_dl:
+            # for rid, data, obss, hits in ext_dl:
+
+                shap_values = e.shap_values(inputs.cuda())
+                shap_values = np.array(shap_values).squeeze()
+
+                aff_mat = np.zeros((4,4))
+                aff_mat[0,0] = -1.5
+                aff_mat[1,1] = 1.5
+                aff_mat[2,2] = 1.5
+                aff_mat[3,3] = 1
+                aff_mat[0,3] = 90
+                aff_mat[1,3] = -126
+                aff_mat[2,3] = -72
+                fname = out_dir + '/{}_{}.nii'.format(self.exp_idx, rid[-1])
+                img = nib.Nifti1Image(shap_values, aff_mat)
+                img.to_filename(fname)
+                img = nib.load(fname)
+                break # only one image!
+
+            # for now, one background set is used!
+            break
 
 class AE_Wrapper:
     def __init__(

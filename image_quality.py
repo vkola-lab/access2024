@@ -29,7 +29,8 @@ class Image_Quality:
         return DataLoader(data, batch_size=1, shuffle=False)
         # return data
 
-    def iqa(self, metrics=['CNR', 'SNR', 'brisque', 'niqe', 'piqe', 'ssim'], names=['T', 'I', 'Z', 'G', 'CG_1'], datasets=['', '_E']):
+    def iqa(self, metrics=['CNR', 'SNR', 'brisque', 'niqe', 'piqe', 'ssim'], names=['T', 'Z', 'G', 'CG_1'], datasets=['', '_E']):
+    # def iqa(self, metrics=['CNR', 'SNR', 'brisque', 'niqe', 'piqe', 'ssim'], names=['T', 'I', 'Z', 'G', 'CG_1'], datasets=['', '_E']):
         data_root = '/data1/RGAN_Data/'
         iqa_dict = collections.defaultdict(list)
         for ds in datasets:
@@ -93,5 +94,5 @@ class Image_Quality:
 if __name__ == "__main__":
     print('Image Quality Analysis:')
     iq = Image_Quality()
-    # iq.iqa()
+    iq.iqa()
     iq.pr()
