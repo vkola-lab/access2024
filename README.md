@@ -1,6 +1,7 @@
 # Adversarial learning for MRI reconstruction and classification of cognitively impaired individuals
 
-Under review
+This work is published in IEEE Access (https://doi.org/10.1109/ACCESS.2024.3408840).
+
 
 # Introduction
 
